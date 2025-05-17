@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
+import { supabase } from "@/lib/supabase";
 
 const loginSchema = z.object({
   email: z.string().email("Invalid email address"),
@@ -55,12 +56,19 @@ export default function LoginForm({ onClose }: LoginFormProps) {
         return;
       }
       
-      await login(loginEmail, loginPassword);
+      // Direct Supabase login
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: loginEmail,
+        password: loginPassword
+      });
+      
+      if (error) throw error;
+      
       if (onClose) onClose();
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "Login Failed",
-        description: "Invalid email or password",
+        description: error.message || "Invalid email or password",
         variant: "destructive",
       });
     } finally {
@@ -91,12 +99,35 @@ export default function LoginForm({ onClose }: LoginFormProps) {
         return;
       }
       
-      await register(registerUsername, registerEmail, registerPassword);
+      // Direct Supabase signup
+      const { data, error } = await supabase.auth.signUp({
+        email: registerEmail,
+        password: registerPassword,
+        options: {
+          data: {
+            username: registerUsername
+          }
+        }
+      });
+      
+      if (error) throw error;
+      
+      if (data.user) {
+        // Handle successful signup
+        toast({
+          title: "Sign Up Successful",
+          description: "Your account has been created. You can now log in.",
+        });
+        
+        // Switch to login view
+        setIsLogin(true);
+      }
+      
       if (onClose) onClose();
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "Registration Failed",
-        description: "Could not create account. Please try again.",
+        description: error.message || "Could not create account. Please try again.",
         variant: "destructive",
       });
     } finally {
