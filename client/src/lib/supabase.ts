@@ -1,8 +1,19 @@
 import { createClient } from "@supabase/supabase-js";
 
+// Log the entire import.meta.env object to see what's available
+console.log("Vite import.meta.env:", import.meta.env);
+
 // Supabase client for database operations
-const supabaseUrl = "https://zjetfdzgvnhdphchgjt.supabase.co";
-const supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpqZXRmZHpndm5oZHBoY2hnanQiLCJyb2xlIjoiYW5vbiIsImlhdCI6MTcwMzYwMDEzMSwiZXhwIjoyMDE5MTc2MTMxfQ.b65FRjhPT68AGiw9KPeJpgPRkwL3XVmvPDi5QXtUFj8";
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+if (!supabaseUrl) {
+  throw new Error("VITE_SUPABASE_URL is not defined. Please check your .env file.");
+}
+
+if (!supabaseAnonKey) {
+  throw new Error("VITE_SUPABASE_ANON_KEY is not defined. Please check your .env file.");
+}
 
 export const supabase = createClient(
   supabaseUrl,
