@@ -1,38 +1,61 @@
 import { useState, useEffect } from "react";
-import { supabase, signIn, signUp, signOut, getCurrentUser } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 import * as React from 'react';
+import { User } from "@shared/schema";
 
 // Auth hook implementation
 export function useAuth() {
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
   useEffect(() => {
     const checkUser = async () => {
       try {
-        const currentUser = await getCurrentUser();
-        setUser(currentUser);
+        // Check if user is signed in with Supabase
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        
+        if (authUser) {
+          // Convert Supabase user to our User type
+          const appUser: User = {
+            id: parseInt(authUser.id, 36) % 1000000, // Generate numeric ID from UUID
+            username: authUser.user_metadata.username || authUser.email?.split('@')[0] || '',
+            email: authUser.email || '',
+            password: '' // We don't store or use passwords client-side
+          };
+          setUser(appUser);
+        } else {
+          setUser(null);
+        }
       } catch (error) {
         console.error("Error checking authentication:", error);
+        setUser(null);
       } finally {
         setIsLoading(false);
       }
     };
-
+    
+    checkUser();
+    
     // Set up auth state listener
     const { data: authListener } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        if (event === "SIGNED_IN" && session?.user) {
-          setUser(session.user);
-        } else if (event === "SIGNED_OUT") {
+      async (event, session) => {
+        if (session?.user) {
+          const authUser = session.user;
+          // Convert to our User type
+          const appUser: User = {
+            id: parseInt(authUser.id, 36) % 1000000,
+            username: authUser.user_metadata.username || authUser.email?.split('@')[0] || '',
+            email: authUser.email || '',
+            password: ''
+          };
+          setUser(appUser);
+        } else {
           setUser(null);
         }
       }
     );
-    
-    checkUser();
     
     return () => {
       authListener?.subscription.unsubscribe();
@@ -41,9 +64,25 @@ export function useAuth() {
 
   const login = async (email: string, password: string) => {
     try {
-      const { user: authUser } = await signIn(email, password);
-      setUser(authUser);
-      return authUser;
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      
+      if (error) throw error;
+      
+      if (data.user) {
+        const appUser: User = {
+          id: parseInt(data.user.id, 36) % 1000000,
+          username: data.user.user_metadata.username || data.user.email?.split('@')[0] || '',
+          email: data.user.email || '',
+          password: ''
+        };
+        setUser(appUser);
+        return appUser;
+      }
+      
+      throw new Error("Failed to get user data");
     } catch (error: any) {
       toast({
         title: "Login Failed",
@@ -56,24 +95,34 @@ export function useAuth() {
 
   const register = async (username: string, email: string, password: string) => {
     try {
-      const { user: authUser } = await signUp(email, password, username);
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            username,
+          },
+        },
+      });
       
-      // Insert the user into our users table with additional info
-      if (authUser?.id) {
-        // Create user profile in the users table
-        const { error } = await supabase
-          .from('users')
-          .insert([{ 
-            id: authUser.id, 
-            username, 
-            email 
-          }]);
-          
-        if (error) throw error;
+      if (error) throw error;
+      
+      if (data.user) {
+        const appUser: User = {
+          id: parseInt(data.user.id, 36) % 1000000,
+          username,
+          email: data.user.email || '',
+          password: ''
+        };
+        setUser(appUser);
+        
+        // Note: With Supabase, we don't need to manually insert rows to a users table
+        // as the auth system handles user management for us
+        
+        return appUser;
       }
       
-      setUser(authUser);
-      return authUser;
+      throw new Error("Failed to create user");
     } catch (error: any) {
       toast({
         title: "Registration Failed",
@@ -86,7 +135,8 @@ export function useAuth() {
 
   const logout = async () => {
     try {
-      await signOut();
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
       setUser(null);
     } catch (error) {
       console.error("Error signing out:", error);
@@ -103,7 +153,7 @@ export function useAuth() {
   };
 }
 
-// Simple compatibility wrapper
+// Auth provider component
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   return React.createElement(React.Fragment, null, children);
 }
