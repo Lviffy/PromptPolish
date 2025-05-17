@@ -57,11 +57,17 @@ export class MemStorage implements IStorage {
     const id = this.promptIdCounter++;
     const now = new Date();
     
+    // Ensure that we're creating a proper Prompt with all required fields
     const prompt: Prompt = {
-      ...insertPrompt,
       id,
-      createdAt: now,
-      isFavorite: insertPrompt.isFavorite || false
+      userId: insertPrompt.userId,
+      originalPrompt: insertPrompt.originalPrompt,
+      enhancedPrompt: insertPrompt.enhancedPrompt,
+      promptType: insertPrompt.promptType,
+      enhancementFocus: insertPrompt.enhancementFocus,
+      improvements: insertPrompt.improvements,
+      isFavorite: insertPrompt.isFavorite === true,
+      createdAt: now
     };
     
     this.promptsStore.set(id, prompt);
