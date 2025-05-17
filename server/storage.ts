@@ -1,4 +1,7 @@
 import { users, prompts, type User, type InsertUser, type Prompt, type InsertPrompt } from "@shared/schema";
+import { eq, and } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
 
 // Storage interface for all CRUD operations
 export interface IStorage {
@@ -15,6 +18,80 @@ export interface IStorage {
   updatePromptFavorite(promptId: number, isFavorite: boolean): Promise<Prompt>;
 }
 
+// PostgreSQL implementation using Drizzle ORM
+export class PostgresStorage implements IStorage {
+  private db: ReturnType<typeof drizzle>;
+  
+  constructor() {
+    // Database connection
+    const connectionString = process.env.DATABASE_URL;
+    if (!connectionString) {
+      throw new Error("DATABASE_URL environment variable is not set");
+    }
+    
+    const client = postgres(connectionString);
+    this.db = drizzle(client);
+  }
+  
+  // User methods
+  async getUser(id: number): Promise<User | undefined> {
+    const result = await this.db.select().from(users).where(eq(users.id, id));
+    return result[0];
+  }
+
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const result = await this.db.select().from(users).where(eq(users.username, username));
+    return result[0];
+  }
+  
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const result = await this.db.select().from(users).where(eq(users.email, email));
+    return result[0];
+  }
+
+  async createUser(insertUser: InsertUser): Promise<User> {
+    const result = await this.db.insert(users).values(insertUser).returning();
+    return result[0];
+  }
+  
+  // Prompt methods
+  async createPrompt(insertPrompt: InsertPrompt): Promise<Prompt> {
+    const result = await this.db.insert(prompts).values(insertPrompt).returning();
+    return result[0];
+  }
+  
+  async getPromptsByUserId(userId: number): Promise<Prompt[]> {
+    return this.db.select()
+      .from(prompts)
+      .where(eq(prompts.userId, userId))
+      .orderBy(prompts.createdAt);
+  }
+  
+  async getFavoritePromptsByUserId(userId: number): Promise<Prompt[]> {
+    return this.db.select()
+      .from(prompts)
+      .where(and(
+        eq(prompts.userId, userId),
+        eq(prompts.isFavorite, true)
+      ))
+      .orderBy(prompts.createdAt);
+  }
+  
+  async updatePromptFavorite(promptId: number, isFavorite: boolean): Promise<Prompt> {
+    const result = await this.db.update(prompts)
+      .set({ isFavorite })
+      .where(eq(prompts.id, promptId))
+      .returning();
+    
+    if (result.length === 0) {
+      throw new Error(`Prompt with id ${promptId} not found`);
+    }
+    
+    return result[0];
+  }
+}
+
+// Memory storage as a fallback
 export class MemStorage implements IStorage {
   private users: Map<number, User>;
   private promptsStore: Map<number, Prompt>;
@@ -103,4 +180,7 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+// Create and export the appropriate storage implementation
+export const storage = process.env.DATABASE_URL 
+  ? new PostgresStorage() 
+  : new MemStorage();
