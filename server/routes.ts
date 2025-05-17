@@ -5,6 +5,7 @@ import { enhancePromptSchema } from "@shared/schema";
 import { z } from "zod";
 import { fromZodError } from "zod-validation-error";
 import { ZodError } from "zod";
+import bcrypt from 'bcryptjs'; // Import bcryptjs
 
 // Add Gemini API client
 import { GoogleGenerativeAI } from "@google/generative-ai";
@@ -25,10 +26,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "User already exists" });
       }
       
-      // Create user
-      const user = await storage.createUser({ username, email, password });
+      // Hash the password
+      const hashedPassword = await bcrypt.hash(password, 10); // Salt rounds: 10
+
+      // Create user with hashed password
+      const user = await storage.createUser({ username, email, password: hashedPassword });
       res.status(201).json({ id: user.id, username: user.username, email: user.email });
     } catch (error) {
+      console.error("Error creating user:", error); // Log the actual error
       res.status(500).json({ message: "Error creating user" });
     }
   });
@@ -39,13 +44,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Find user
       const user = await storage.getUserByEmail(email);
-      if (!user || user.password !== password) {
+      if (!user) {
+        return res.status(401).json({ message: "Invalid credentials" });
+      }
+      
+      // Compare hashed password
+      const isPasswordValid = await bcrypt.compare(password, user.password);
+      if (!isPasswordValid) {
         return res.status(401).json({ message: "Invalid credentials" });
       }
       
       // In a real app, we would create a session and return a token
+      // For now, just return user info (excluding password)
       res.status(200).json({ id: user.id, username: user.username, email: user.email });
     } catch (error) {
+      console.error("Error logging in:", error); // Log the actual error
       res.status(500).json({ message: "Error logging in" });
     }
   });
