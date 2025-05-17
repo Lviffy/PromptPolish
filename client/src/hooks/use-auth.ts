@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 import * as React from 'react';
 import { User } from "@shared/schema";
+import { apiRequest } from "@/lib/queryClient";
 
 // Auth hook implementation
 export function useAuth() {
@@ -11,82 +11,29 @@ export function useAuth() {
   const { toast } = useToast();
 
   useEffect(() => {
-    const checkUser = async () => {
+    // Check for existing user in localStorage
+    const storedUser = localStorage.getItem("prompt_enhancer_user");
+    if (storedUser) {
       try {
-        // Check if user is signed in with Supabase
-        const { data: { user: authUser } } = await supabase.auth.getUser();
-        
-        if (authUser) {
-          // Convert Supabase user to our User type
-          const appUser: User = {
-            id: parseInt(authUser.id, 36) % 1000000, // Generate numeric ID from UUID
-            username: authUser.user_metadata.username || authUser.email?.split('@')[0] || '',
-            email: authUser.email || '',
-            password: '' // We don't store or use passwords client-side
-          };
-          setUser(appUser);
-        } else {
-          setUser(null);
-        }
+        setUser(JSON.parse(storedUser));
       } catch (error) {
-        console.error("Error checking authentication:", error);
-        setUser(null);
-      } finally {
-        setIsLoading(false);
+        localStorage.removeItem("prompt_enhancer_user");
       }
-    };
-    
-    checkUser();
-    
-    // Set up auth state listener
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (session?.user) {
-          const authUser = session.user;
-          // Convert to our User type
-          const appUser: User = {
-            id: parseInt(authUser.id, 36) % 1000000,
-            username: authUser.user_metadata.username || authUser.email?.split('@')[0] || '',
-            email: authUser.email || '',
-            password: ''
-          };
-          setUser(appUser);
-        } else {
-          setUser(null);
-        }
-      }
-    );
-    
-    return () => {
-      authListener?.subscription.unsubscribe();
-    };
+    }
+    setIsLoading(false);
   }, []);
 
   const login = async (email: string, password: string) => {
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-      
-      if (error) throw error;
-      
-      if (data.user) {
-        const appUser: User = {
-          id: parseInt(data.user.id, 36) % 1000000,
-          username: data.user.user_metadata.username || data.user.email?.split('@')[0] || '',
-          email: data.user.email || '',
-          password: ''
-        };
-        setUser(appUser);
-        return appUser;
-      }
-      
-      throw new Error("Failed to get user data");
+      const response = await apiRequest("POST", "/api/auth/login", { email, password });
+      const userData = await response.json();
+      setUser(userData);
+      localStorage.setItem("prompt_enhancer_user", JSON.stringify(userData));
+      return userData;
     } catch (error: any) {
       toast({
         title: "Login Failed",
-        description: error.message || "Invalid email or password.",
+        description: "Invalid email or password.",
         variant: "destructive",
       });
       throw error;
@@ -95,52 +42,24 @@ export function useAuth() {
 
   const register = async (username: string, email: string, password: string) => {
     try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            username,
-          },
-        },
-      });
-      
-      if (error) throw error;
-      
-      if (data.user) {
-        const appUser: User = {
-          id: parseInt(data.user.id, 36) % 1000000,
-          username,
-          email: data.user.email || '',
-          password: ''
-        };
-        setUser(appUser);
-        
-        // Note: With Supabase, we don't need to manually insert rows to a users table
-        // as the auth system handles user management for us
-        
-        return appUser;
-      }
-      
-      throw new Error("Failed to create user");
+      const response = await apiRequest("POST", "/api/auth/register", { username, email, password });
+      const userData = await response.json();
+      setUser(userData);
+      localStorage.setItem("prompt_enhancer_user", JSON.stringify(userData));
+      return userData;
     } catch (error: any) {
       toast({
         title: "Registration Failed",
-        description: error.message || "Could not create account. Please try again.",
+        description: "Could not create account. Please try again.",
         variant: "destructive",
       });
       throw error;
     }
   };
 
-  const logout = async () => {
-    try {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
-      setUser(null);
-    } catch (error) {
-      console.error("Error signing out:", error);
-    }
+  const logout = () => {
+    setUser(null);
+    localStorage.removeItem("prompt_enhancer_user");
   };
 
   return {
