@@ -1,15 +1,11 @@
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.SUPABASE_URL || import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.error("Missing Supabase environment variables");
-}
+const supabaseUrl = "https://zjetfdzgvnhdphchgjt.supabase.co";
+const supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpqZXRmZHpndm5oZHBoY2hnanQiLCJyb2xlIjoiYW5vbiIsImlhdCI6MTcwMzYwMDEzMSwiZXhwIjoyMDE5MTc2MTMxfQ.b65FRjhPT68AGiw9KPeJpgPRkwL3XVmvPDi5QXtUFj8";
 
 export const supabase = createClient(
-  supabaseUrl || "",
-  supabaseAnonKey || ""
+  supabaseUrl,
+  supabaseAnonKey
 );
 
 // Authentication helpers
