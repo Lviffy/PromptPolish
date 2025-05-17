@@ -56,19 +56,13 @@ export default function LoginForm({ onClose }: LoginFormProps) {
         return;
       }
       
-      // Direct Supabase login
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: loginEmail,
-        password: loginPassword
-      });
-      
-      if (error) throw error;
-      
+      // Use our regular authentication system
+      await login(loginEmail, loginPassword);
       if (onClose) onClose();
     } catch (error: any) {
       toast({
         title: "Login Failed",
-        description: error.message || "Invalid email or password",
+        description: "Invalid email or password",
         variant: "destructive",
       });
     } finally {
@@ -99,35 +93,20 @@ export default function LoginForm({ onClose }: LoginFormProps) {
         return;
       }
       
-      // Direct Supabase signup
-      const { data, error } = await supabase.auth.signUp({
-        email: registerEmail,
-        password: registerPassword,
-        options: {
-          data: {
-            username: registerUsername
-          }
-        }
+      // Use our regular registration system
+      await register(registerUsername, registerEmail, registerPassword);
+      
+      // Handle successful signup and redirect
+      toast({
+        title: "Sign Up Successful",
+        description: "Your account has been created.",
       });
-      
-      if (error) throw error;
-      
-      if (data.user) {
-        // Handle successful signup
-        toast({
-          title: "Sign Up Successful",
-          description: "Your account has been created. You can now log in.",
-        });
-        
-        // Switch to login view
-        setIsLogin(true);
-      }
       
       if (onClose) onClose();
     } catch (error: any) {
       toast({
         title: "Registration Failed",
-        description: error.message || "Could not create account. Please try again.",
+        description: "Could not create account. Please try again.",
         variant: "destructive",
       });
     } finally {
