@@ -30,11 +30,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const hashedPassword = await bcrypt.hash(password, 10); // Salt rounds: 10
 
       // Create user with hashed password
+      console.log("Attempting to create user:", { username, email }); // Log attempt
       const user = await storage.createUser({ username, email, password: hashedPassword });
+      console.log("User created successfully:", { id: user.id, username: user.username, email: user.email }); // Log success
       res.status(201).json({ id: user.id, username: user.username, email: user.email });
     } catch (error) {
       console.error("Error creating user:", error); // Log the actual error
-      res.status(500).json({ message: "Error creating user" });
+      if (error instanceof Error) {
+        console.error("Error details:", {
+          message: error.message,
+          stack: error.stack,
+          name: error.name
+        });
+      }
+      res.status(500).json({ message: "Error creating user", details: error instanceof Error ? error.message : "Unknown error" });
     }
   });
 
@@ -184,6 +193,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(favorites);
     } catch (error) {
       res.status(500).json({ message: "Error fetching favorite prompts" });
+    }
+  });
+
+  // Add this before the httpServer creation
+  app.get("/api/test-db", async (req, res) => {
+    try {
+      const testUser = await storage.getUserByEmail(req.query.email as string);
+      res.json({ 
+        success: true, 
+        user: testUser,
+        storageType: storage instanceof PostgresStorage ? "PostgreSQL" : "Memory"
+      });
+    } catch (error) {
+      console.error("Database test error:", error);
+      res.status(500).json({ 
+        success: false, 
+        error: error instanceof Error ? error.message : "Unknown error",
+        storageType: storage instanceof PostgresStorage ? "PostgreSQL" : "Memory"
+      });
     }
   });
 

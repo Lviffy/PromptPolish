@@ -2,11 +2,13 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Prompt, InsertPrompt } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth } from "@/lib/auth";
+import { useApiRequest } from "./useApiRequest";
 
 export function usePromptHistory() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const { apiRequest } = useApiRequest();
   const userId = user?.id;
 
   // Get all prompts for the current user
@@ -21,7 +23,10 @@ export function usePromptHistory() {
       const response = await fetch(`/api/prompts?userId=${userId}`, {
         credentials: "include",
       });
-      if (!response.ok) throw new Error("Failed to fetch prompts");
+      if (!response.ok) {
+         const errorBody = await response.json();
+         throw new Error(`Failed to fetch prompts: ${response.status} ${response.statusText} - ${errorBody.message}`);
+      }
       return response.json();
     },
     enabled: !!userId,
@@ -38,7 +43,10 @@ export function usePromptHistory() {
       const response = await fetch(`/api/prompts/favorites?userId=${userId}`, {
         credentials: "include",
       });
-      if (!response.ok) throw new Error("Failed to fetch favorites");
+       if (!response.ok) {
+         const errorBody = await response.json();
+         throw new Error(`Failed to fetch favorites: ${response.status} ${response.statusText} - ${errorBody.message}`);
+      }
       return response.json();
     },
     enabled: !!userId,
@@ -55,12 +63,21 @@ export function usePromptHistory() {
     },
   });
 
-  // Toggle favorite status
+  // Remove a prompt from history
+  const removePromptMutation = useMutation({
+    mutationFn: async (promptId: number) => {
+      const response = await apiRequest("DELETE", `/api/prompts/${promptId}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/prompts", userId] });
+    },
+  });
+
+  // Toggle favorite status of a prompt
   const toggleFavoriteMutation = useMutation({
-    mutationFn: async ({ promptId, isFavorite }: { promptId: number; isFavorite: boolean }) => {
-      const response = await apiRequest("PATCH", `/api/prompts/${promptId}/favorite`, {
-        isFavorite,
-      });
+    mutationFn: async (promptId: number) => {
+      const response = await apiRequest("PUT", `/api/prompts/${promptId}/favorite`);
       return response.json();
     },
     onSuccess: () => {
@@ -69,26 +86,14 @@ export function usePromptHistory() {
     },
   });
 
-  // Add a prompt to history
-  const addPromptToHistory = (promptData: InsertPrompt) => {
-    addPromptMutation.mutate(promptData);
-  };
-
-  // Toggle favorite status of a prompt
-  const toggleFavorite = (prompt: Prompt) => {
-    toggleFavoriteMutation.mutate({
-      promptId: prompt.id,
-      isFavorite: !prompt.isFavorite,
-    });
-  };
-
   return {
     prompts,
     favorites,
     isLoading,
     isFavoritesLoading,
     error,
-    addPromptToHistory,
-    toggleFavorite,
+    addPrompt: addPromptMutation.mutate,
+    removePrompt: removePromptMutation.mutate,
+    toggleFavorite: toggleFavoriteMutation.mutate,
   };
 }
