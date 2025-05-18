@@ -62,6 +62,13 @@ export default defineConfig(async ({ mode }) => {
     server: {
       headers: {
         'Content-Security-Policy': baseCSP
+      },
+      proxy: {
+        '/api': {
+          target: 'http://localhost:5000',
+          changeOrigin: true,
+          secure: false
+        }
       }
     },
     define: {

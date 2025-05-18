@@ -32,7 +32,7 @@ export interface IStorage {
 }
 
 // PostgreSQL implementation using Drizzle ORM
-class PostgresStorage implements IStorage {
+export class PostgresStorage implements IStorage {
   private db: ReturnType<typeof drizzle>;
   
   constructor() {
@@ -183,7 +183,7 @@ class PostgresStorage implements IStorage {
 }
 
 // Memory storage as a fallback
-class MemStorage implements IStorage {
+export class MemStorage implements IStorage {
   private users: Map<number, User>;
   private promptsStore: Map<number, Prompt>;
   private conversationsMap: Map<string, Conversation>;
@@ -380,9 +380,6 @@ class MemStorage implements IStorage {
     };
   }
 }
-
-// Export storage classes for type checking
-export { PostgresStorage, MemStorage };
 
 // Create and export the appropriate storage implementation
 export const storage = process.env.DATABASE_URL 
