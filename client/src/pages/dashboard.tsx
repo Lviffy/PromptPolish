@@ -87,8 +87,8 @@ export default function Dashboard() {
           />
         </div>
 
-        {/* Prompt Creation Area with glass effect */}
-        <div className="glass-effect rounded-lg p-6 animate-fade-in">
+        {/* Prompt Creation Area */}
+        <div className="animate-fade-in">
           <PromptForm />
         </div>
 
