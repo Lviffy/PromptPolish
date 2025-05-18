@@ -20,11 +20,29 @@ export default defineConfig(async ({ mode }) => {
   // Load env variables from the project root for the current mode
   // Only variables prefixed with VITE_ will be loaded by default
   const env = loadEnv(mode, projectRoot, "VITE_");
+  const isProduction = mode === "production";
 
   const conditionalPlugins = await getConditionalPlugins(
-    mode === "production",
+    isProduction,
     process.env.REPL_ID
   );
+
+  // Base CSP configuration
+  const baseCSP = `
+    default-src 'self';
+    script-src 'self' ${isProduction ? '' : "'unsafe-eval'"} https://*.firebaseio.com https://*.googleapis.com;
+    style-src 'self' 'unsafe-inline';
+    img-src 'self' data: https:;
+    font-src 'self';
+    connect-src 'self' https://*.firebaseio.com https://*.googleapis.com wss://*.firebaseio.com;
+    frame-src 'self';
+    object-src 'none';
+    base-uri 'self';
+    form-action 'self';
+    frame-ancestors 'none';
+    block-all-mixed-content;
+    upgrade-insecure-requests;
+  `.replace(/\s+/g, ' ').trim();
 
   return {
     plugins: [
@@ -41,6 +59,11 @@ export default defineConfig(async ({ mode }) => {
     },
     root: path.resolve(projectRoot, "client"),
     envDir: projectRoot, // Specifies the directory to load .env files from
+    server: {
+      headers: {
+        'Content-Security-Policy': baseCSP
+      }
+    },
     define: {
       // Expose env variables to the client code
       // Vite automatically exposes VITE_ prefixed variables from loadEnv if they are used in client code
@@ -55,6 +78,14 @@ export default defineConfig(async ({ mode }) => {
     build: {
       outDir: path.resolve(projectRoot, "dist/public"),
       emptyOutDir: true,
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            'react-vendor': ['react', 'react-dom'],
+            'ui-vendor': ['@radix-ui/react-*'],
+          }
+        }
+      }
     },
   };
 });

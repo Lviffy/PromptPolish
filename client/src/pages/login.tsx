@@ -1,21 +1,31 @@
-import { useEffect } from "react";
-import { useLocation } from "wouter";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/lib/auth";
 import LoginForm from "@/components/LoginForm";
-import { useAuth } from "@/hooks/use-auth";
 import { Wand2 } from "lucide-react";
 
-export default function Login() {
+export default function LoginPage() {
+  const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
-  const [location, navigate] = useLocation();
+  const [isNavigating, setIsNavigating] = useState(false);
 
   useEffect(() => {
-    if (isAuthenticated) {
+    // If user is already authenticated, redirect to home
+    if (isAuthenticated && !isNavigating) {
       navigate("/");
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, navigate, isNavigating]);
+
+  const handleNavigation = () => {
+    setIsNavigating(true);
+    // Add a delay before navigation to ensure form submission completes
+    setTimeout(() => {
+      navigate("/");
+    }, 500);
+  };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="flex justify-center">
           <div className="p-2 bg-primary rounded-lg">
@@ -31,7 +41,7 @@ export default function Login() {
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <LoginForm />
+        <LoginForm onNavigationStart={handleNavigation} />
       </div>
     </div>
   );

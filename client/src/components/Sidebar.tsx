@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { User } from "@shared/schema";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth } from "@/lib/auth";
 import { 
   Home, 
   History, 
@@ -71,7 +71,7 @@ export default function Sidebar({ user, onCloseSidebar }: SidebarProps) {
           <div className="p-4 mt-auto border-t border-gray-200">
             <div className="flex items-center">
               <div className="flex items-center justify-center bg-gray-100 rounded-full h-10 w-10 mr-3">
-                {user.username.charAt(0).toUpperCase()}
+                {user?.username?.charAt(0)?.toUpperCase() || 'U'}
               </div>
               <div>
                 <p className="text-sm font-medium text-gray-900">{user.username}</p>
