@@ -19,18 +19,18 @@ export default function Favorites() {
       <div className="container mx-auto max-w-6xl">
         <div className="mb-8">
           <div className="flex items-center">
-            <Star className="text-yellow-400 h-6 w-6 mr-2" fill="currentColor" />
-            <h1 className="text-3xl font-bold text-gray-900">Favorite Prompts</h1>
+            <Star className="text-yellow-400 dark:text-yellow-300 h-6 w-6 mr-2" fill="currentColor" />
+            <h1 className="text-3xl font-bold text-foreground">Favorite Prompts</h1>
           </div>
-          <p className="text-gray-600 mt-2">Your collection of saved prompts</p>
+          <p className="text-muted-foreground mt-2">Your collection of saved prompts</p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Favorites List */}
           <div>
             <div className="mb-4">
-              <h2 className="text-xl font-semibold">Saved Prompts</h2>
-              <p className="text-sm text-gray-500">
+              <h2 className="text-xl font-semibold text-foreground">Saved Prompts</h2>
+              <p className="text-sm text-muted-foreground">
                 {favorites.length} {favorites.length === 1 ? 'favorite' : 'favorites'}
               </p>
             </div>

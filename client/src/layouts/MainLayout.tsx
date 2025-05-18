@@ -29,7 +29,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gradient-to-br from-background to-secondary/20">
+    <div className="flex h-screen overflow-hidden bg-gradient-to-br from-background to-secondary/20 text-foreground">
       {/* Sidebar with backdrop blur */}
       <div 
         className={`fixed inset-0 bg-black/20 backdrop-blur-sm transition-opacity duration-300 md:hidden

@@ -1,25 +1,64 @@
 import MainLayout from "@/layouts/MainLayout";
 import { useAuth } from "@/lib/auth";
+import { useTheme } from "@/lib/theme";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Settings as SettingsIcon, User, Key, Bell, Shield } from "lucide-react";
+import { Settings as SettingsIcon, User, Key, Bell, Shield, Moon, Sun } from "lucide-react";
 
 export default function Settings() {
   const { user, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
 
   return (
     <MainLayout>
       <div className="container mx-auto max-w-4xl">
         <div className="mb-8">
           <div className="flex items-center">
-            <SettingsIcon className="h-6 w-6 mr-2 text-gray-700" />
-            <h1 className="text-3xl font-bold text-gray-900">Settings</h1>
+            <SettingsIcon className="h-6 w-6 mr-2 text-primary" />
+            <h1 className="text-3xl font-bold">Settings</h1>
           </div>
-          <p className="text-gray-600 mt-2">Manage your account preferences</p>
+          <p className="text-muted-foreground mt-2">Manage your account preferences</p>
         </div>
+
+        {/* Interface Settings */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle>Interface</CardTitle>
+            <CardDescription>Customize how PromptPolish looks and feels.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                {theme === 'dark' ? (
+                  <div className="bg-primary/20 p-2 rounded-full">
+                    <Moon className="h-5 w-5 text-accent" />
+                  </div>
+                ) : (
+                  <div className="bg-amber-100 p-2 rounded-full">
+                    <Sun className="h-5 w-5 text-amber-500" />
+                  </div>
+                )}
+                <div>
+                  <Label htmlFor="dark-mode" className="text-base font-medium">
+                    {theme === 'dark' ? 'Dark Mode' : 'Light Mode'}
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    {theme === 'dark' ? 'Using the dark theme' : 'Using the light theme'}
+                  </p>
+                </div>
+              </div>
+              <Switch
+                id="dark-mode"
+                checked={theme === 'dark'}
+                onCheckedChange={toggleTheme}
+                className={theme === 'dark' ? "bg-accent" : ""}
+              />
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Account */}
         <Card className="mb-6">

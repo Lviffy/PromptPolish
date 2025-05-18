@@ -13,8 +13,8 @@ export interface IStorage {
   
   // Prompt operations
   createPrompt(prompt: InsertPrompt): Promise<Prompt>;
-  getPromptsByUserId(userId: number): Promise<Prompt[]>;
-  getFavoritePromptsByUserId(userId: number): Promise<Prompt[]>;
+  getPromptsByUserId(userId: string): Promise<Prompt[]>;
+  getFavoritePromptsByUserId(userId: string): Promise<Prompt[]>;
   updatePromptFavorite(promptId: number, isFavorite: boolean): Promise<Prompt>;
 }
 
@@ -60,18 +60,29 @@ export class PostgresStorage implements IStorage {
     return result[0];
   }
   
-  async getPromptsByUserId(userId: number): Promise<Prompt[]> {
+  async getPromptsByUserId(userId: string): Promise<Prompt[]> {
+    // Get user by Firebase UID stored in email field (as a temporary solution)
+    // In a production app, you'd have a proper mapping table
+    const user = await this.getUserByEmail(userId);
+    if (!user) {
+      return [];
+    }
     return this.db.select()
       .from(prompts)
-      .where(eq(prompts.userId, userId))
+      .where(eq(prompts.userId, user.id))
       .orderBy(prompts.createdAt);
   }
   
-  async getFavoritePromptsByUserId(userId: number): Promise<Prompt[]> {
+  async getFavoritePromptsByUserId(userId: string): Promise<Prompt[]> {
+    // Get user by Firebase UID stored in email field (as a temporary solution)
+    const user = await this.getUserByEmail(userId);
+    if (!user) {
+      return [];
+    }
     return this.db.select()
       .from(prompts)
       .where(and(
-        eq(prompts.userId, userId),
+        eq(prompts.userId, user.id),
         eq(prompts.isFavorite, true)
       ))
       .orderBy(prompts.createdAt);

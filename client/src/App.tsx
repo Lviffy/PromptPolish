@@ -9,6 +9,7 @@ import Dashboard from "@/pages/dashboard";
 import History from "@/pages/history";
 import Favorites from "@/pages/favorites";
 import Settings from "@/pages/settings";
+import { ThemeProvider } from '@/lib/theme';
 
 // Protected route wrapper
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -67,9 +68,11 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <Router>
         <AuthProvider>
-          <TooltipProvider>
-            <AppRoutes />
-          </TooltipProvider>
+          <ThemeProvider>
+            <TooltipProvider>
+              <AppRoutes />
+            </TooltipProvider>
+          </ThemeProvider>
         </AuthProvider>
       </Router>
     </QueryClientProvider>
