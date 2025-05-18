@@ -49,10 +49,9 @@ export default function OutputDisplay({
   };
 
   return (
-    <div className="bg-card rounded-xl shadow-sm border border-border mb-8 dark:shadow-lg dark:shadow-primary/10">
-      <div className="p-6">
+    <div className="bg-background rounded-xl shadow-sm border border-border mb-8 p-6 dark:shadow-lg dark:shadow-primary/10">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold text-card-foreground flex items-center">
+          <h2 className="text-xl font-semibold text-foreground flex items-center">
             <Wand2 className="mr-2 h-5 w-5 text-accent" /> 
             Enhanced Result
           </h2>
@@ -176,7 +175,6 @@ export default function OutputDisplay({
             )}
           </div>
         )}
-      </div>
     </div>
   );
 }

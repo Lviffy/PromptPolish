@@ -92,9 +92,8 @@ export default function PromptForm() {
   };
 
   return (
-    <div className="bg-card rounded-xl shadow-sm border border-border mb-8 overflow-hidden dark:shadow-lg dark:shadow-primary/10">
-      <div className="p-6">
-        <h2 className="text-xl font-semibold mb-4 text-card-foreground flex items-center">
+    <div className="bg-background rounded-xl shadow-sm mb-8 overflow-hidden dark:shadow-lg dark:shadow-primary/10 p-6">
+        <h2 className="text-xl font-semibold mb-4 text-foreground flex items-center">
           <PencilLine className="mr-2 h-5 w-5 text-accent" /> 
           Create New Prompt
         </h2>
@@ -174,7 +173,6 @@ export default function PromptForm() {
             </Button>
           </div>
         </form>
-      </div>
     </div>
   );
 }
