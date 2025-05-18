@@ -1,10 +1,11 @@
 // Google Generative AI client for Gemini
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const apiKey = process.env.GEMINI_API_KEY || import.meta.env.VITE_GEMINI_API_KEY;
+// In Vite, use import.meta.env for environment variables
+const apiKey = import.meta.env.VITE_GEMINI_API_KEY || "";
 
 // Initialize the Gemini API
-const genAI = new GoogleGenerativeAI(apiKey || "");
+const genAI = new GoogleGenerativeAI(apiKey);
 
 // Get the Gemini Pro model
 export const geminiModel = genAI.getGenerativeModel({ model: "gemini-pro" });

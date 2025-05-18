@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { useParams, useLocation, useNavigate } from "wouter";
 import MainLayout from "@/layouts/MainLayout";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -20,6 +21,8 @@ import {
   Trash,
   RotateCcw
 } from "lucide-react";
+import { useConversation } from "@/hooks/use-conversation";
+import { useChatHistory } from "@/hooks/use-chat-history";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -35,26 +38,37 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Chat } from "@/components/ui/chat";
 import { cn } from "@/lib/utils";
 
-interface Message {
-  id: string;
-  content: string;
-  isUser: boolean;
-  timestamp: string;
-}
-
 export default function ChatPage() {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: "1",
-      content: "I am an AI assistant designed to help you craft better prompts for any purpose. How can I help you today?",
-      isUser: false,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    },
-  ]);  const [inputValue, setInputValue] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const params = useParams();
+  const [location, navigate] = useLocation();
+  const conversationId = params.id;
+  
+  // Create a new conversation if no ID provided
+  const { createConversation } = useChatHistory();
+  useEffect(() => {
+    const initConversation = async () => {
+      if (!conversationId) {
+        const newConversation = await createConversation("New conversation");
+        navigate(`/chat/${newConversation.id}`);
+      }
+    };
+    
+    initConversation();
+  }, [conversationId, createConversation, navigate]);
+  
+  // Handle conversation messages
+  const { 
+    messages, 
+    isLoading, 
+    sendMessage, 
+    clearMessages 
+  } = useConversation(conversationId);
+  
+  const [inputValue, setInputValue] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  
   // Scroll to bottom when messages change
   useEffect(() => {
     scrollToBottom();
@@ -73,35 +87,14 @@ export default function ChatPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
   
-  const handleSendMessage = (messageText?: string) => {
+  const handleSendMessage = async (messageText?: string) => {
     const textToSend = messageText || inputValue.trim();
     if (!textToSend || isLoading) return;
     
-    // Add user message
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      content: textToSend,
-      isUser: true,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    };
-    setMessages((prev) => [...prev, userMessage]);
     setInputValue('');
-    
-    // Simulate loading
-    setIsLoading(true);
-    
-    // Simulate AI response after delay
-    setTimeout(() => {
-      const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        content: getResponse(userMessage.content),
-        isUser: false,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      };
-      setMessages((prev) => [...prev, assistantMessage]);
-      setIsLoading(false);
-    }, 1500);
+    await sendMessage(textToSend);
   };
+  
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -109,88 +102,16 @@ export default function ChatPage() {
     }
   };
   
-  const startNewChat = () => {
-    setMessages([
-      {
-        id: "1",
-        content: "I am an AI assistant designed to help you craft better prompts for any purpose. How can I help you today?",
-        isUser: false,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      }
-    ]);
-  };
-    const deleteMessage = (messageId: string) => {
-    setMessages((prevMessages) => {
-      // Find the index of the message to delete
-      const index = prevMessages.findIndex((msg) => msg.id === messageId);
-      
-      if (index === -1) return prevMessages;
-      
-      // If it's a user message and there's an AI response immediately after it, remove both
-      if (prevMessages[index].isUser && index + 1 < prevMessages.length && !prevMessages[index + 1].isUser) {
-        return [...prevMessages.slice(0, index), ...prevMessages.slice(index + 2)];
-      }
-      
-      // Otherwise just remove the single message
-      return [...prevMessages.slice(0, index), ...prevMessages.slice(index + 1)];
-    });
-  };
-  
-  // Store original messages for revert functionality
-  const [originalMessages, setOriginalMessages] = React.useState<Record<string, string>>({});
-  
-  // Function to revert a message to its original content
-  const revertMessage = (messageId: string) => {
-    setMessages((prevMessages) => {
-      // Find the message to revert
-      const messageIndex = prevMessages.findIndex((msg) => msg.id === messageId);
-      
-      if (messageIndex === -1) return prevMessages;
-      
-      // Get the original message if available, otherwise use current content
-      const originalContent = originalMessages[messageId] || prevMessages[messageIndex].content;
-      
-      // Create a new array with the reverted message
-      const updatedMessages = [...prevMessages];
-      updatedMessages[messageIndex] = {
-        ...updatedMessages[messageIndex],
-        content: originalContent
-      };
-      
-      return updatedMessages;
-    });
+  const startNewChat = async () => {
+    const newConversation = await createConversation("New conversation");
+    navigate(`/chat/${newConversation.id}`);
   };
   
   const clearAllMessages = () => {
-    // Keep only the initial welcome message
-    startNewChat();
+    clearMessages();
+    setIsDialogOpen(false);
   };
   
-  // Enhanced response generator for demo purposes
-  const getResponse = (message: string) => {
-    const lowerMessage = message.toLowerCase();
-    
-    if (lowerMessage.includes("hello") || lowerMessage.includes("hi")) {
-      return "Hello! 👋 I'm here to help you craft more effective prompts. What kind of prompt would you like to improve today?";
-    } else if (lowerMessage.includes("help")) {
-      return "I'd be happy to help you improve your prompts! Here's how I can assist:\n\n• Enhance clarity and structure\n• Add specificity and context\n• Adjust tone and style\n• Optimize for your specific use case\n\nJust share your prompt, and I'll suggest improvements!";
-    } else if (lowerMessage.includes("example")) {
-      return "Here's an example of how I can improve a prompt:\n\n**Original**: \"Generate a story about a dog.\"\n\n**Enhanced**: \"Generate a heartwarming short story (300-500 words) about a loyal dog who helps their elderly owner navigate a challenging situation. Include descriptive language and focus on the emotional bond between them. The story should have a positive resolution that highlights the dog's intuitive understanding of human emotions.\"\n\nNotice how the enhanced version provides specific details about length, tone, characters, plot elements, and desired outcome. Would you like me to help enhance one of your prompts in a similar way?";
-    } else if (lowerMessage.includes("creative")) {
-      return "For creative prompts, I recommend including specific details about:\n\n1. Desired length or format\n2. Tone or emotional impact\n3. Character details or perspectives\n4. Setting or world-building elements\n5. Thematic elements to explore\n6. Any constraints or special requirements\n\nWould you like to share a creative prompt for enhancement?";
-    } else if (lowerMessage.includes("technical")) {
-      return "For technical prompts, clarity and precision are key. I recommend:\n\n1. Defining technical terms and requirements upfront\n2. Breaking complex requests into clear steps\n3. Specifying the desired format for the response\n4. Including relevant context about your project or goals\n5. Noting any constraints or limitations\n\nDo you have a technical prompt you'd like me to refine?";
-    } else if (lowerMessage.includes("prompt")) {
-      if (lowerMessage.length > 100) {
-        return "Thank you for sharing your prompt! Here's my enhanced version:\n\n" + message + "\n\n**Enhanced version**:\n\n" + message + " [Now with greater specificity about the desired outcome, clearer structure, and more contextual details to guide the response in the direction you want. I've maintained your original intent while adding parameters that will help produce more consistent, high-quality responses.]";
-      } else {
-        return "I see you've shared a prompt. To provide the best enhancement, I'd need a bit more context:\n\n• What's the purpose of this prompt?\n• Who is your target audience?\n• What kind of response are you looking to get?\n• Are there any specific improvements you're looking for?\n\nThe more details you share, the better I can help refine your prompt!";
-      }
-    } else {
-      return "I'm your prompt enhancement assistant! I can help you create more effective prompts for any purpose - whether for AI systems, creative writing, technical documentation, or professional communications.\n\nTo get started, you can:\n\n• Share a prompt you'd like to improve\n• Ask for tips on a specific type of prompt\n• Request examples of effective prompts\n• Tell me what you're trying to accomplish\n\nWhat would you like to work on today?";
-    }
-  };
-
   // Sample prompt examples for quick starts
   const promptExamples = [
     "How can I make my creative writing prompts more specific?",
@@ -292,7 +213,6 @@ export default function ChatPage() {
             <div className="col-span-1 md:col-span-3">              <Chat
                 messages={messages}
                 onSendMessage={handleSendMessage}
-                onRevertMessage={revertMessage}
                 isLoading={isLoading}
                 title="PromptPolish Chat"
                 description="AI-powered prompt enhancement"
@@ -328,14 +248,10 @@ export default function ChatPage() {
               <AlertDialogDescription>
                 Are you sure you want to clear the chat? This action cannot be undone.
               </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
+            </AlertDialogHeader>            <AlertDialogFooter>
               <AlertDialogCancel onClick={() => setIsDialogOpen(false)}>Cancel</AlertDialogCancel>
               <AlertDialogAction 
-                onClick={() => {
-                  clearAllMessages();
-                  setIsDialogOpen(false);
-                }}
+                onClick={clearAllMessages}
                 className="text-destructive"
               >
                 Clear Chat
