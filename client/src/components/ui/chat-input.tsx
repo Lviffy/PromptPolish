@@ -2,7 +2,7 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { PaperPlaneIcon, Loader2, Sparkles, Mic, Paperclip } from "lucide-react";
+import { Send, Loader2, Sparkles, Mic, Paperclip } from "lucide-react";
 
 export interface ChatInputProps {
   onSend: (message: string) => void;
@@ -108,11 +108,10 @@ export function ChatInput({
                 !message.trim() && "opacity-50"
               )}
               disabled={!message.trim() || disabled || isLoading}
-            >
-              {isLoading ? (
+            >              {isLoading ? (
                 <Loader2 className="mr-1 h-4 w-4 animate-spin" />
               ) : (
-                <PaperPlaneIcon className="mr-1 h-4 w-4" />
+                <Send className="mr-1 h-4 w-4" />
               )}
               Send
             </Button>

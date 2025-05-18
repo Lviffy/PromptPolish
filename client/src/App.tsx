@@ -9,6 +9,7 @@ import Dashboard from "@/pages/dashboard";
 import History from "@/pages/history";
 import Favorites from "@/pages/favorites";
 import Settings from "@/pages/settings";
+import ChatPage from "@/pages/chat";
 import { ThemeProvider } from '@/lib/theme';
 
 // Protected route wrapper
@@ -30,7 +31,7 @@ function AppRoutes() {
         path="/"
         element={
           <ProtectedRoute>
-            <Dashboard />
+            <ChatPage />
           </ProtectedRoute>
         }
       />

@@ -1,7 +1,8 @@
 import React from "react";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Bot, User } from "lucide-react";
+import { Bot, User, RotateCcw } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export interface ChatMessageProps {
   message: string;
@@ -10,6 +11,9 @@ export interface ChatMessageProps {
   avatar?: string;
   userName?: string;
   className?: string;
+  messageId?: string;
+  onDelete?: (messageId: string) => void;
+  onRevert?: (messageId: string) => void;
 }
 
 export function ChatMessage({
@@ -19,11 +23,13 @@ export function ChatMessage({
   avatar,
   userName,
   className,
+  messageId,
+  onDelete,
+  onRevert,
 }: ChatMessageProps) {
-  return (
-    <div
+  return (    <div
       className={cn(
-        "flex w-full items-start gap-4 py-6 px-4 md:px-6",
+        "group flex w-full items-start gap-4 py-6 px-4 md:px-6 relative hover:bg-muted/40 transition-colors duration-200",
         isUser ? "bg-muted/30" : "bg-background",
         className
       )}
@@ -59,8 +65,16 @@ export function ChatMessage({
               {i < message.split("\n").length - 1 && <br />}
             </React.Fragment>
           ))}
-        </div>
-      </div>
+        </div>      </div>      {isUser && onRevert && messageId && (
+        <Button
+          variant="ghost"
+          className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+          onClick={() => onRevert(messageId)}
+          title="Revert message"
+        >
+          <RotateCcw className="h-4 w-4 text-muted-foreground hover:text-primary" />
+        </Button>
+      )}
     </div>
   );
 }

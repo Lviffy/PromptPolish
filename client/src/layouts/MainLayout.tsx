@@ -29,10 +29,10 @@ export default function MainLayout({ children }: MainLayoutProps) {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gradient-to-br from-background via-background/95 to-accent/5 text-foreground">
-      {/* Sidebar with backdrop blur */}
+    <div className="flex h-screen overflow-hidden bg-background text-foreground">
+      {/* Sidebar overlay with backdrop blur */}
       <div 
-        className={`fixed inset-0 bg-black/30 backdrop-blur-md transition-opacity duration-300 md:hidden
+        className={`fixed inset-0 bg-black/30 backdrop-blur-sm transition-opacity duration-300 md:hidden
           ${isSidebarOpen ? 'opacity-100 z-40' : 'opacity-0 pointer-events-none'}`}
         onClick={() => setIsSidebarOpen(false)}
       />
