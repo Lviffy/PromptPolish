@@ -158,7 +158,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Prompt history endpoints
   app.get("/api/prompts", async (req, res) => {
     try {
-      const userId = Number(req.query.userId);
+      const userId = req.query.userId as string;
       if (!userId) {
         return res.status(400).json({ message: "User ID is required" });
       }
@@ -204,7 +204,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/prompts/favorites", async (req, res) => {
     try {
-      const userId = Number(req.query.userId);
+      const userId = req.query.userId as string;
       if (!userId) {
         return res.status(400).json({ message: "User ID is required" });
       }

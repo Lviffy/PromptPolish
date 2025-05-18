@@ -1,6 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { User } from "@shared/schema";
 import { useAuth } from "@/lib/auth";
+import ThemeToggle from "./ThemeToggle";
 import { 
   Home, 
   History, 
@@ -33,19 +34,19 @@ export default function Sidebar({ user, onCloseSidebar }: SidebarProps) {
   ];
 
   return (
-    <div className="flex flex-col w-64 border-r border-gray-200 bg-white">
+    <div className="flex flex-col w-64 border-r border-border bg-card text-card-foreground">
       <div className="flex flex-col flex-grow pt-5 overflow-y-auto">
         <div className="flex items-center flex-shrink-0 px-4 mb-5">
           <div className="flex items-center space-x-2">
             <div className="p-2 bg-primary rounded-lg">
-              <Wand2 className="h-4 w-4 text-white" />
+              <Wand2 className="h-4 w-4 text-primary-foreground" />
             </div>
             <span className="text-xl font-bold">Prompt Enhancer</span>
           </div>
         </div>
         
         {/* Navigation */}
-        <nav className="flex-1 px-2 space-y-1 bg-white">
+        <nav className="flex-1 px-2 space-y-1 bg-card">
           {navItems.map((item) => {
             const isActive = location === item.href;
             return (
@@ -54,8 +55,8 @@ export default function Sidebar({ user, onCloseSidebar }: SidebarProps) {
                 href={item.href}
                 onClick={onCloseSidebar}
                 className={`rounded-lg px-3 py-2 flex items-center space-x-3 font-medium transition-colors ${isActive 
-                  ? 'bg-secondary/60 text-foreground' 
-                  : 'text-muted-foreground hover:bg-muted'}
+                  ? 'bg-secondary text-secondary-foreground' 
+                  : 'text-muted-foreground hover:bg-muted hover:text-foreground'}
                 `}
               >
                 {item.icon}
@@ -65,18 +66,26 @@ export default function Sidebar({ user, onCloseSidebar }: SidebarProps) {
           })}
         </nav>
         
+        {/* Theme Toggle */}
+        <div className="px-4 py-2">
+          <div className="flex items-center justify-between p-2 rounded-lg bg-muted/50">
+            <span className="text-sm font-medium">Toggle Theme</span>
+            <ThemeToggle />
+          </div>
+        </div>
+        
         {/* User Menu */}
         {user && (
-          <div className="p-4 mt-auto border-t border-gray-200">
+          <div className="p-4 mt-auto border-t border-border">
             <div className="flex items-center">
-              <div className="flex items-center justify-center bg-gray-100 rounded-full h-10 w-10 mr-3">
+              <div className="flex items-center justify-center bg-muted rounded-full h-10 w-10 mr-3 text-foreground">
                 {user?.username?.charAt(0)?.toUpperCase() || 'U'}
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-900">{user.username}</p>
+                <p className="text-sm font-medium">{user.username}</p>
                 <button 
                   onClick={handleLogout} 
-                  className="text-xs text-red-500 hover:underline"
+                  className="text-xs text-destructive hover:underline"
                 >
                   Log out
                 </button>

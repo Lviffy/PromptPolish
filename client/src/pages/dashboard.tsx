@@ -65,7 +65,7 @@ export default function Dashboard() {
             title="Total Prompts" 
             value={prompts.length} 
             icon={PencilLine}
-            bgColor="bg-blue-100/50"
+            bgColor="bg-blue-100/50 dark:bg-blue-900/20"
             iconColor="text-primary"
             className="card-hover glass-effect"
           />
@@ -73,16 +73,16 @@ export default function Dashboard() {
             title="This Week" 
             value={prompts.filter((p: Prompt) => new Date(p.createdAt) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)).length} 
             icon={Wand2}
-            bgColor="bg-green-100/50"
-            iconColor="text-secondary"
+            bgColor="bg-green-100/50 dark:bg-green-900/20"
+            iconColor="text-secondary dark:text-secondary-foreground"
             className="card-hover glass-effect"
           />
           <StatsCard 
             title="Favorites" 
             value={favorites.length} 
             icon={Star}
-            bgColor="bg-purple-100/50"
-            iconColor="text-accent"
+            bgColor="bg-purple-100/50 dark:bg-purple-900/20"
+            iconColor="text-accent dark:text-accent-foreground"
             className="card-hover glass-effect"
           />
         </div>

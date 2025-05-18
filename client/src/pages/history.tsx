@@ -24,11 +24,10 @@ export default function History() {
   };
 
   return (
-    <MainLayout>
-      <div className="container mx-auto max-w-6xl">
+    <MainLayout>      <div className="container mx-auto max-w-6xl">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Prompt History</h1>
-          <p className="text-gray-600 mt-2">View and manage your enhanced prompts</p>
+          <h1 className="text-3xl font-bold text-foreground">Prompt History</h1>
+          <p className="text-muted-foreground mt-2">View and manage your enhanced prompts</p>
         </div>
 
         {/* Search Bar */}
@@ -40,9 +39,8 @@ export default function History() {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10"
-            />
-            <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-              <Search className="h-4 w-4 text-gray-500" />
+            />            <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+              <Search className="h-4 w-4 text-muted-foreground" />
             </div>
             {searchTerm && (
               <Button
@@ -59,10 +57,9 @@ export default function History() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Prompt List */}
-          <div>
-            <div className="mb-4">
-              <h2 className="text-xl font-semibold">Your Prompts</h2>
-              <p className="text-sm text-gray-500">
+          <div>            <div className="mb-4">
+              <h2 className="text-xl font-semibold text-foreground">Your Prompts</h2>
+              <p className="text-sm text-muted-foreground">
                 {filteredPrompts.length} {filteredPrompts.length === 1 ? 'prompt' : 'prompts'} found
               </p>
             </div>

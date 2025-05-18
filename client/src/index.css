@@ -16,7 +16,7 @@
     --secondary-foreground: 222.2 47.4% 11.2%;
     --muted: 210 40% 96.1%;
     --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
+    --accent: 217 91% 60%;     /* Updated to match the accent color in dark mode */
     --accent-foreground: 222.2 47.4% 11.2%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
@@ -24,6 +24,58 @@
     --input: 214.3 31.8% 91.4%;
     --ring: 221.2 83.2% 53.3%;
     --radius: 0.75rem;
+    --chart-1: 217 91% 60%;
+    --chart-2: 213 94% 68%;
+    --chart-3: 250 95% 76%;
+    --chart-4: 267 83% 60%;
+    /* Additional colors */
+    --success: 158 84% 40%;     /* #10B981 */
+    --warning: 35 92% 50%;      /* #F59E0B */
+    --hover: 220 84% 53%;       /* #2563EB */
+    --surface: 210 40% 98%;     /* Light mode surface color */
+  }
+
+  .dark {
+    /* Custom dark theme based on provided colors */
+    --background: 223 41% 8%;      /* #0B0F1A */
+    --foreground: 210 33% 96%;     /* #F1F5F9 (textLight) */
+    
+    --card: 220 33% 11%;           /* #121826 (surface) */
+    --card-foreground: 210 33% 96%; /* #F1F5F9 (textLight) */
+    
+    --popover: 220 33% 11%;        /* #121826 (surface) */
+    --popover-foreground: 210 33% 96%; /* #F1F5F9 (textLight) */
+    
+    --primary: 219 57% 29%;        /* #1F3B73 (primary) */
+    --primary-foreground: 210 33% 96%; /* #F1F5F9 (textLight) */
+    
+    --secondary: 220 33% 11%;      /* #121826 (surface) */
+    --secondary-foreground: 210 33% 96%; /* #F1F5F9 (textLight) */
+    
+    --muted: 220 25% 15%;         /* Slightly lighter than surface */
+    --muted-foreground: 220 16% 65%; /* #94A3B8 (textMuted) */
+    
+    --accent: 217 91% 60%;        /* #3B82F6 (accent) */
+    --accent-foreground: 210 33% 96%; /* #F1F5F9 (textLight) */
+    
+    --destructive: 0 84% 60%;    /* #EF4444 (error) */
+    --destructive-foreground: 210 33% 96%; /* #F1F5F9 (textLight) */
+    
+    --border: 220 33% 18%;       /* Slightly lighter than surface */
+    --input: 220 33% 18%;        /* Slightly lighter than surface */
+    --ring: 217 91% 60%;         /* #3B82F6 (accent) */
+    
+    /* Success and warning colors */
+    --success: 158 84% 40%;     /* #10B981 (success) */
+    --warning: 35 92% 50%;      /* #F59E0B (warning) */
+    
+    /* Hover state */
+    --hover: 220 84% 53%;       /* #2563EB (hover) */;
+    --ring: 224.3 76.3% 48%;
+    --chart-1: 217 91% 60%;
+    --chart-2: 213 94% 68%;
+    --chart-3: 250 95% 76%;
+    --chart-4: 267 83% 60%;
   }
 }
 
@@ -80,7 +132,15 @@
 .glass-effect {
   background: rgba(255, 255, 255, 0.7);
   backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(59, 130, 246, 0.15); /* Based on accent color #3B82F6 */
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.dark .glass-effect {
+  background: rgba(18, 24, 38, 0.7); /* Based on surface color #121826 */
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(31, 59, 115, 0.2); /* Based on primary color #1F3B73 */
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 /* Card hover effects */
@@ -90,5 +150,11 @@
 
 .card-hover:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.1); /* Using accent color for consistent hover effect in light mode */
+  border-color: rgba(59, 130, 246, 0.2); /* Subtle accent border on hover */
+}
+
+.dark .card-hover:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  border-color: rgba(31, 59, 115, 0.3); /* Dark mode accent border */
 }

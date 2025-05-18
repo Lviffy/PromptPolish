@@ -92,13 +92,16 @@ export default function PromptForm() {
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 mb-8 overflow-hidden">
+    <div className="bg-card rounded-xl shadow-sm border border-border mb-8 overflow-hidden dark:shadow-lg dark:shadow-primary/10">
       <div className="p-6">
-        <h2 className="text-xl font-semibold mb-4">Create New Prompt</h2>
+        <h2 className="text-xl font-semibold mb-4 text-card-foreground flex items-center">
+          <PencilLine className="mr-2 h-5 w-5 text-accent" /> 
+          Create New Prompt
+        </h2>
         <form onSubmit={handleSubmit}>
           {/* Prompt Input */}
           <div className="mb-4">
-            <label htmlFor="original-prompt" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="original-prompt" className="block text-sm font-medium text-foreground mb-1">
               Your Prompt
             </label>
             <Textarea 
@@ -106,13 +109,13 @@ export default function PromptForm() {
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               placeholder="Enter your prompt here..."
-              className="min-h-[120px] focus:min-h-[180px] transition-all duration-300"
+              className="min-h-[120px] focus:min-h-[180px] transition-all duration-300 focus-visible:ring-accent"
             />
           </div>
           
           {/* Prompt Type Selection */}
           <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Prompt Type</label>
+            <label className="block text-sm font-medium text-foreground mb-2">Prompt Type</label>
             <div className="flex flex-wrap gap-2">
               {promptTypes.map((type) => (
                 <Button
@@ -120,7 +123,9 @@ export default function PromptForm() {
                   type="button"
                   variant={promptType === type ? "default" : "outline"}
                   onClick={() => setPromptType(type)}
-                  className={promptType === type ? "bg-primary text-white" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}
+                  className={promptType === type ? 
+                    "bg-accent text-primary-foreground dark:bg-accent dark:text-white" : 
+                    "bg-secondary text-secondary-foreground hover:bg-secondary/80 dark:border-accent/30"}
                 >
                   {promptTypeIcons[type]} {type}
                 </Button>
@@ -130,7 +135,7 @@ export default function PromptForm() {
           
           {/* Style/Tone Settings */}
           <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Enhancement Focus</label>
+            <label className="block text-sm font-medium text-foreground mb-2">Enhancement Focus</label>
             <div className="flex flex-wrap gap-2">
               {enhancementFocuses.map((focus) => (
                 <Button
@@ -139,8 +144,10 @@ export default function PromptForm() {
                   variant={enhancementFocus === focus ? "default" : "outline"}
                   onClick={() => setEnhancementFocus(focus)}
                   className={enhancementFocus === focus 
-                    ? (focus === "LLM-Optimized" ? "bg-accent text-white" : "bg-primary text-white") 
-                    : "bg-gray-200 text-gray-800 hover:bg-gray-300"}
+                    ? (focus === "LLM-Optimized" 
+                        ? "bg-accent text-primary-foreground dark:text-white dark:shadow-accent/20 dark:shadow-md" 
+                        : "bg-accent text-primary-foreground dark:text-white") 
+                    : "bg-secondary text-secondary-foreground hover:bg-secondary/80 dark:border-accent/30"}
                 >
                   {enhancementFocusIcons[focus]} {focus}
                 </Button>
@@ -152,7 +159,7 @@ export default function PromptForm() {
           <div className="flex justify-end">
             <Button 
               type="submit"
-              className="px-6 py-2.5 bg-primary text-white"
+              className="px-6 py-2.5 bg-accent hover:bg-hover text-white shadow-lg shadow-accent/20 dark:shadow-accent/10"
               disabled={enhanceMutation.isPending}
             >
               {enhanceMutation.isPending ? (
