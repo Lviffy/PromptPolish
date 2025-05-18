@@ -8,6 +8,18 @@ import { usePromptHistory } from "@/hooks/use-prompt-history";
 import { PencilLine, Wand2, Star } from "lucide-react";
 import { Link } from "wouter";
 
+interface Prompt {
+  id: number;
+  userId: number;
+  originalPrompt: string;
+  enhancedPrompt: string;
+  promptType: string;
+  enhancementFocus: string;
+  improvements: string;
+  isFavorite: boolean;
+  createdAt: Date;
+}
+
 export default function Dashboard() {
   const { 
     prompts, 
@@ -22,8 +34,7 @@ export default function Dashboard() {
     improvements: Array<{ category: string; detail: string }>;
   } | null>(null);
 
-  // Handle selecting a prompt from history
-  const handleSelectPrompt = (prompt: any) => {
+  const handleSelectPrompt = (prompt: Prompt) => {
     setEnhancementResult({
       originalPrompt: prompt.originalPrompt,
       enhancedPrompt: prompt.enhancedPrompt,
@@ -37,66 +48,93 @@ export default function Dashboard() {
 
   return (
     <MainLayout>
-      <div className="container mx-auto max-w-6xl">
-        {/* Header */}
-        <div className="mb-8 hidden md:block">
-          <h1 className="text-3xl font-bold text-gray-900">Prompt Enhancer</h1>
-          <p className="text-gray-600 mt-2">Transform your rough ideas into polished, effective prompts</p>
+      <div className="container mx-auto max-w-6xl space-y-8">
+        {/* Header with gradient text */}
+        <div className="mb-8 hidden md:block animate-slide-in">
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+            Prompt Enhancer
+          </h1>
+          <p className="text-muted-foreground mt-2 text-lg">
+            Transform your rough ideas into polished, effective prompts
+          </p>
         </div>
 
-        {/* Quick Stats */}
+        {/* Quick Stats with hover effects */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
           <StatsCard 
             title="Total Prompts" 
             value={prompts.length} 
             icon={PencilLine}
-            bgColor="bg-blue-100"
+            bgColor="bg-blue-100/50"
             iconColor="text-primary"
+            className="card-hover glass-effect"
           />
           <StatsCard 
             title="This Week" 
-            value={prompts.filter(p => new Date(p.createdAt) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)).length} 
+            value={prompts.filter((p: Prompt) => new Date(p.createdAt) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)).length} 
             icon={Wand2}
-            bgColor="bg-green-100"
+            bgColor="bg-green-100/50"
             iconColor="text-secondary"
+            className="card-hover glass-effect"
           />
           <StatsCard 
             title="Favorites" 
             value={favorites.length} 
             icon={Star}
-            bgColor="bg-purple-100"
+            bgColor="bg-purple-100/50"
             iconColor="text-accent"
+            className="card-hover glass-effect"
           />
         </div>
 
-        {/* Prompt Creation Area */}
-        <PromptForm />
+        {/* Prompt Creation Area with glass effect */}
+        <div className="glass-effect rounded-lg p-6 animate-fade-in">
+          <PromptForm />
+        </div>
 
-        {/* Output Display */}
+        {/* Output Display with animation */}
         {enhancementResult && (
-          <OutputDisplay 
-            originalPrompt={enhancementResult.originalPrompt}
-            enhancedPrompt={enhancementResult.enhancedPrompt}
-            improvements={enhancementResult.improvements}
-          />
+          <div className="animate-slide-in">
+            <OutputDisplay 
+              originalPrompt={enhancementResult.originalPrompt}
+              enhancedPrompt={enhancementResult.enhancedPrompt}
+              improvements={enhancementResult.improvements}
+            />
+          </div>
         )}
 
-        {/* Recent Enhancements */}
-        <div className="mb-8">
-          <h2 className="text-xl font-semibold mb-4">Recent Enhancements</h2>
+        {/* Recent Enhancements with glass effect */}
+        <div className="glass-effect rounded-lg p-6 animate-fade-in">
+          <h2 className="text-xl font-semibold mb-4 text-foreground/90">Recent Enhancements</h2>
           {isLoading ? (
-            <div className="text-center p-4">Loading...</div>
+            <div className="text-center p-4 text-muted-foreground">Loading...</div>
           ) : (
             <>
               <HistoryList 
                 prompts={recentPrompts} 
                 onSelectPrompt={handleSelectPrompt}
-                onToggleFavorite={toggleFavorite}
+                onToggleFavorite={(prompt: Prompt) => toggleFavorite(prompt.id)}
               />
               
               <div className="mt-4 text-center">
-                <Link href="/history" className="text-primary hover:text-primary/80 text-sm font-medium">
-                  View all history →
+                <Link 
+                  href="/history" 
+                  className="inline-flex items-center text-primary hover:text-primary/80 text-sm font-medium transition-colors"
+                >
+                  View all history
+                  <svg 
+                    className="w-4 h-4 ml-1" 
+                    fill="none" 
+                    stroke="currentColor" 
+                    viewBox="0 0 24 24"
+                  >
+                    <path 
+                      strokeLinecap="round" 
+                      strokeLinejoin="round" 
+                      strokeWidth={2} 
+                      d="M9 5l7 7-7 7"
+                    />
+                  </svg>
                 </Link>
               </div>
             </>
