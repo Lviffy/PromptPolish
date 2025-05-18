@@ -18,6 +18,8 @@ export interface ChatMessage {
 export interface ChatProps {
   messages: ChatMessage[];
   onSendMessage: (message: string) => void;
+  onDeleteMessage?: (messageId: string) => void;
+  onRevertMessage?: (messageId: string) => void;
   isLoading?: boolean;
   className?: string;
   placeholder?: string;
@@ -29,6 +31,8 @@ export interface ChatProps {
 export function Chat({
   messages,
   onSendMessage,
+  onDeleteMessage,
+  onRevertMessage,
   isLoading = false,
   className,
   placeholder,
@@ -52,16 +56,16 @@ export function Chat({
           {messages.length === 0 && emptyState ? (
             <div className="flex h-full items-center justify-center p-8">
               {emptyState}
-            </div>
-          ) : (
-            messages.map((message) => (
+            </div>          ) : (            messages.map((message) => (
               <ChatMessage
                 key={message.id}
+                messageId={message.id}
                 message={message.content}
                 isUser={message.isUser}
                 timestamp={message.timestamp}
                 avatar={message.avatar}
                 userName={message.userName}
+                onRevert={onRevertMessage}
               />
             ))
           )}
