@@ -20,18 +20,19 @@ export default function StatsCard({
   className 
 }: StatsCardProps) {
   return (
-    <Card className={cn("border border-border/50", className)}>
-      <CardContent className="p-4">
-        <div className="flex items-center">
-          <div className={cn("rounded-full p-3", bgColor)}>
-            <Icon className={cn("h-5 w-5", iconColor)} />
+    <Card className={cn("border border-border/50 overflow-hidden soft-shadow", className)}>
+      <CardContent className="p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-sm font-medium text-muted-foreground tracking-wide">{title}</h2>
+            <p className="text-3xl font-bold text-foreground mt-1">{value}</p>
           </div>
-          <div className="ml-4">
-            <h2 className="text-sm font-medium text-muted-foreground">{title}</h2>
-            <p className="text-2xl font-semibold text-foreground">{value}</p>
+          <div className={cn("rounded-xl p-3.5 transition-all duration-300", bgColor)}>
+            <Icon className={cn("h-6 w-6", iconColor)} />
           </div>
         </div>
       </CardContent>
+      <div className="h-1 w-full bg-gradient-to-r from-transparent via-accent/30 to-transparent opacity-60" />
     </Card>
   );
 }
