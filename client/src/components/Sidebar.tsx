@@ -9,7 +9,8 @@ import {
   Star, 
   Settings, 
   LogOut, 
-  Sparkles
+  Sparkles,
+  Trash2
 } from "lucide-react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -47,6 +48,12 @@ export default function Sidebar({ onCloseSidebar }: SidebarProps) {
       ...prev
     ]);
   };
+  
+  const deleteConversation = (id: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setConversations(prev => prev.filter(conversation => conversation.id !== id));
+  };
 
   const navItems = [
     { href: "/", label: "New chat", icon: <PlusCircle className="w-4 h-4" /> },
@@ -74,18 +81,26 @@ export default function Sidebar({ onCloseSidebar }: SidebarProps) {
           <h2 className="text-xs font-medium text-muted-foreground mb-2 px-2">Recent conversations</h2>
           <div className="space-y-1">
             {conversations.map(chat => (
-              <Link 
-                key={chat.id}
-                href={`/chat/${chat.id}`}
-                onClick={onCloseSidebar}
-                className="group flex items-center gap-3 rounded-lg p-3 text-sm hover:bg-muted/50 transition-colors w-full overflow-hidden text-ellipsis whitespace-nowrap"
-              >
-                <MessageSquare className="h-4 w-4 text-muted-foreground" />
-                <div className="flex-1 truncate">
-                  <p className="truncate">{chat.title}</p>
-                  <p className="text-xs text-muted-foreground">{chat.date}</p>
-                </div>
-              </Link>
+              <div key={chat.id} className="group relative">
+                <Link 
+                  href={`/chat/${chat.id}`}
+                  onClick={onCloseSidebar}
+                  className="flex items-center gap-3 rounded-lg p-3 text-sm hover:bg-muted/50 transition-colors w-full overflow-hidden text-ellipsis whitespace-nowrap"
+                >
+                  <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                  <div className="flex-1 truncate">
+                    <p className="truncate">{chat.title}</p>
+                    <p className="text-xs text-muted-foreground">{chat.date}</p>
+                  </div>
+                </Link>
+                <button
+                  onClick={(e) => deleteConversation(chat.id, e)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-muted rounded-sm"
+                  title="Delete conversation"
+                >
+                  <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
+                </button>
+              </div>
             ))}
           </div>
         </div>
