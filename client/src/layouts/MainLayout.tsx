@@ -29,9 +29,20 @@ export default function MainLayout({ children }: MainLayoutProps) {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-white">
-      {/* Sidebar - hidden on mobile, visible on md and up */}
-      <div className={`${isSidebarOpen ? 'block' : 'hidden'} md:flex md:flex-shrink-0`}>
+    <div className="flex h-screen overflow-hidden bg-gradient-to-br from-background to-secondary/20">
+      {/* Sidebar with backdrop blur */}
+      <div 
+        className={`fixed inset-0 bg-black/20 backdrop-blur-sm transition-opacity duration-300 md:hidden
+          ${isSidebarOpen ? 'opacity-100 z-40' : 'opacity-0 pointer-events-none'}`}
+        onClick={() => setIsSidebarOpen(false)}
+      />
+      
+      {/* Sidebar */}
+      <div 
+        className={`fixed md:relative z-50 h-full transition-transform duration-300 ease-in-out
+          ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+          md:flex md:flex-shrink-0`}
+      >
         <Sidebar user={user} onCloseSidebar={() => setIsSidebarOpen(false)} />
       </div>
 
@@ -40,9 +51,11 @@ export default function MainLayout({ children }: MainLayoutProps) {
         {/* Mobile header */}
         <MobileHeader onToggleSidebar={toggleSidebar} />
 
-        {/* Content area */}
-        <main className="flex-1 relative z-0 overflow-y-auto focus:outline-none p-6">
-          {children}
+        {/* Content area with glass effect */}
+        <main className="flex-1 relative z-0 overflow-y-auto focus:outline-none p-4 md:p-6">
+          <div className="animate-fade-in">
+            {children}
+          </div>
         </main>
       </div>
     </div>

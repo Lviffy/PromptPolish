@@ -53,11 +53,10 @@ export default function Sidebar({ user, onCloseSidebar }: SidebarProps) {
                 key={item.href} 
                 href={item.href}
                 onClick={onCloseSidebar}
-                className={`${
-                  isActive 
-                    ? 'bg-primary bg-opacity-10 text-primary' 
-                    : 'hover:bg-gray-100 text-gray-700'
-                } rounded-lg px-3 py-2 flex items-center space-x-3 font-medium`}
+                className={`rounded-lg px-3 py-2 flex items-center space-x-3 font-medium transition-colors ${isActive 
+                  ? 'bg-secondary/60 text-foreground' 
+                  : 'text-muted-foreground hover:bg-muted'}
+                `}
               >
                 {item.icon}
                 <span>{item.label}</span>
