@@ -20,10 +20,15 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const analytics = getAnalytics(app);
+
+// Configure Google Auth Provider
 export const googleProvider = new GoogleAuthProvider();
+googleProvider.setCustomParameters({
+  prompt: 'select_account'
+});
 
 // Helper function to handle Firebase errors
 export function handleFirebaseError(error: any) {
   console.error('Firebase error:', error);
   throw new Error(error.message || 'An unexpected error occurred');
-} 
+}
