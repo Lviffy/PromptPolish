@@ -78,6 +78,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validatedData = enhancePromptSchema.parse(req.body);
       const { prompt, promptType, enhancementFocus } = validatedData;
 
+      console.log("Received enhancement request:", { prompt, promptType, enhancementFocus });
+
       // Construct the Gemini prompt
       const systemPrompt = `
         You are an expert prompt enhancer. Your task is to improve the following prompt to make it more effective.
@@ -104,18 +106,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       `;
 
+      console.log("Sending prompt to Gemini:", systemPrompt);
+
       // Call Gemini API
       const result = await model.generateContent(systemPrompt);
       const response = result.response;
       const text = response.text();
       
+      console.log("Received response from Gemini:", text);
+
       // Try to parse the JSON response
       try {
         const parsedResponse = JSON.parse(text);
+        console.log("Parsed Gemini response:", parsedResponse);
         return res.json(parsedResponse);
-      } catch (parseError) {
+      } catch (parseError: any) {
+        console.error("Error parsing Gemini JSON response:", parseError);
         // If JSON parsing fails, extract the enhanced prompt manually
         const enhancedPrompt = text.replace(/```json|```/g, '').trim();
+        console.log("Manually extracted enhanced prompt:", enhancedPrompt);
         return res.json({ 
           enhancedPrompt,
           improvements: [
@@ -123,7 +132,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ]
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ 
           message: "Invalid request data", 
@@ -131,6 +140,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       console.error("Error enhancing prompt:", error);
+      // Log more details about the error
+      if (error instanceof Error) {
+        console.error("Error details:", {
+          message: error.message,
+          stack: error.stack,
+          name: error.name,
+          // Include other relevant properties if available, e.g., error.status
+        });
+      } else if (typeof error === 'object' && error !== null) {
+         console.error("Error object:", error);
+      }
       res.status(500).json({ message: "Error enhancing prompt" });
     }
   });
@@ -211,6 +231,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         success: false, 
         error: error instanceof Error ? error.message : "Unknown error",
         storageType: storage instanceof PostgresStorage ? "PostgreSQL" : "Memory"
+      });
+    }
+  });
+
+  // Temporary endpoint to test Gemini API
+  app.get("/api/test-gemini", async (req, res) => {
+    try {
+      const prompt = "Write a very short test response.";
+      console.log("Testing Gemini API with prompt:", prompt);
+      const result = await model.generateContent(prompt);
+      const response = result.response;
+      const text = response.text();
+      console.log("Gemini API test successful. Response:", text);
+      res.json({ success: true, message: "Gemini API test successful", response: text });
+    } catch (error: any) {
+      console.error("Gemini API test failed:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Gemini API test failed", 
+        error: error.message || "Unknown error"
       });
     }
   });
