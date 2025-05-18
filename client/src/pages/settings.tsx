@@ -7,10 +7,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Settings as SettingsIcon, User, Key, Bell, Shield, Moon, Sun } from "lucide-react";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 
 export default function Settings() {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
+
+  // Get user's first initial for the avatar fallback
+  const getInitials = () => {
+    if (!user?.username) return "U";
+    return user.username.charAt(0).toUpperCase();
+  };
 
   return (
     <MainLayout>
@@ -67,6 +74,16 @@ export default function Settings() {
             <CardDescription>Manage your account settings.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            <div className="flex items-center space-x-4 mb-4">
+              <Avatar className="h-16 w-16">
+                <AvatarImage src={user?.photoURL || ''} alt="Profile Picture" />
+                <AvatarFallback>{getInitials()}</AvatarFallback>
+              </Avatar>
+              <div>
+                <p className="text-sm font-medium">{user?.username}</p>
+                <p className="text-xs text-muted-foreground">{user?.email}</p>
+              </div>
+            </div>
             <div className="space-y-2">
               <Label htmlFor="username">Username</Label>
               <Input id="username" value={user?.username || ''} readOnly />

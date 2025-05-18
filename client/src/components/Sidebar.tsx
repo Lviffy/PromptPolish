@@ -1,5 +1,4 @@
 import { Link, useLocation } from "wouter";
-import { User } from "@shared/schema";
 import { useAuth } from "@/lib/auth";
 import ThemeToggle from "./ThemeToggle";
 import { 
@@ -9,15 +8,21 @@ import {
   Settings, 
   Wand2
 } from "lucide-react";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 
 interface SidebarProps {
-  user: User | null;
   onCloseSidebar?: () => void;
 }
 
-export default function Sidebar({ user, onCloseSidebar }: SidebarProps) {
+export default function Sidebar({ onCloseSidebar }: SidebarProps) {
   const [location] = useLocation();
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
+
+  // Get user's first initial for the avatar fallback
+  const getInitials = () => {
+    if (!user?.username) return "U";
+    return user.username.charAt(0).toUpperCase();
+  };
 
   const handleLogout = () => {
     logout();
@@ -76,13 +81,14 @@ export default function Sidebar({ user, onCloseSidebar }: SidebarProps) {
         
         {/* User Menu */}
         {user && (
-          <div className="p-4 mt-auto border-t border-border">
+          <div className="p-4 mt-auto border-t border-border bg-muted/30">
             <div className="flex items-center">
-              <div className="flex items-center justify-center bg-muted rounded-full h-10 w-10 mr-3 text-foreground">
-                {user?.username?.charAt(0)?.toUpperCase() || 'U'}
-              </div>
+              <Avatar className="mr-3 h-10 w-10">
+                <AvatarImage src={user?.photoURL || ''} alt={user.username} />
+                <AvatarFallback>{getInitials()}</AvatarFallback>
+              </Avatar>
               <div>
-                <p className="text-sm font-medium">{user.username}</p>
+                <p className="text-sm font-medium">{getInitials()}</p>
                 <button 
                   onClick={handleLogout} 
                   className="text-xs text-destructive hover:underline"

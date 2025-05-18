@@ -11,16 +11,14 @@ export default function GoogleLoginButton() {
     } catch (error) {
       console.error("Google login failed:", error);
     }
-  };
-
-  return (
+  };  return (
     <Button
       variant="outline"
       type="button"
-      className="w-full flex items-center justify-center gap-2"
+      className="w-full flex items-center justify-center gap-3 py-6 text-lg border-input/50 hover:border-input/70"
       onClick={handleGoogleLogin}
     >
-      <FcGoogle className="h-5 w-5" />
+      <FcGoogle className="h-6 w-6" />
       Continue with Google
     </Button>
   );

@@ -43,7 +43,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
           ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
           md:flex md:flex-shrink-0`}
       >
-        <Sidebar user={user} onCloseSidebar={() => setIsSidebarOpen(false)} />
+        <Sidebar onCloseSidebar={() => setIsSidebarOpen(false)} />
       </div>
 
       {/* Main content */}
