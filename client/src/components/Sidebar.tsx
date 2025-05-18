@@ -88,7 +88,7 @@ export default function Sidebar({ onCloseSidebar }: SidebarProps) {
                 <AvatarFallback>{getInitials()}</AvatarFallback>
               </Avatar>
               <div>
-                <p className="text-sm font-medium">{getInitials()}</p>
+                <p className="text-sm font-medium">{user?.username}</p>
                 <button 
                   onClick={handleLogout} 
                   className="text-xs text-destructive hover:underline"
