@@ -77,7 +77,14 @@ export function usePromptHistory() {
   // Toggle favorite status of a prompt
   const toggleFavoriteMutation = useMutation({
     mutationFn: async (promptId: number) => {
-      const response = await apiRequest("PUT", `/api/prompts/${promptId}/favorite`);
+      // Find the current favorite status of the prompt
+      const currentPrompt = prompts.find(p => p.id === promptId);
+      if (!currentPrompt) {
+        throw new Error(`Prompt with id ${promptId} not found`);
+      }
+      const newFavoriteStatus = !currentPrompt.isFavorite;
+      
+      const response = await apiRequest("PATCH", `/api/prompts/${promptId}/favorite`, { isFavorite: newFavoriteStatus });
       return response.json();
     },
     onSuccess: () => {
