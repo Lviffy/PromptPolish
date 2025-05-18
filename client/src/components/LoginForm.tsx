@@ -140,63 +140,60 @@ export default function LoginForm({ onClose, onNavigationStart }: LoginFormProps
       });
       setIsSubmitting(false);
     }
-  };
-
-  return (
-    <Card className="max-w-md w-full mx-auto">
-      <CardContent className="p-6">
-        <h2 className="text-2xl font-bold text-center mb-6">
+  };  return (
+    <Card className="max-w-md w-full mx-auto shadow-md border border-muted/40">
+      <CardContent className="p-8">
+        <h2 className="text-2xl font-bold text-center mb-8">
           {isLogin ? "Welcome Back" : "Create Account"}
         </h2>
         
         {isLogin ? (
           <>
-            <form onSubmit={onLoginSubmit} className="space-y-4">
+            <form onSubmit={onLoginSubmit} className="space-y-6">
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
+                <Label htmlFor="email" className="text-base mb-1">Email</Label>                <Input
                   id="email"
                   type="email"
                   value={loginEmail}
                   onChange={(e) => setLoginEmail(e.target.value)}
                   disabled={isSubmitting}
+                  className="py-6 text-base"
                   required
                 />
                 {errors.email && (
-                  <p className="text-sm text-red-500">{errors.email}</p>
+                  <p className="text-sm font-medium text-destructive mt-1">{errors.email}</p>
                 )}
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <Input
+                <Label htmlFor="password" className="text-base mb-1">Password</Label>                <Input
                   id="password"
                   type="password"
                   value={loginPassword}
                   onChange={(e) => setLoginPassword(e.target.value)}
                   disabled={isSubmitting}
+                  className="py-6 text-base"
                   required
                 />
                 {errors.password && (
-                  <p className="text-sm text-red-500">{errors.password}</p>
+                  <p className="text-sm font-medium text-destructive mt-1">{errors.password}</p>
                 )}
               </div>
-              
-              <Button
+                <Button
                 type="submit"
-                className="w-full"
+                className="w-full py-6 text-lg"
                 disabled={isSubmitting}
               >
                 {isSubmitting ? "Logging in..." : "Log In"}
               </Button>
             </form>
 
-            <div className="relative my-6">
+            <div className="relative my-8">
               <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-300"></div>
+                <div className="w-full border-t border-gray-200"></div>
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white text-gray-500">Or continue with</span>
+                <span className="px-4 bg-card text-muted-foreground">Or continue with</span>
               </div>
             </div>
 
@@ -204,96 +201,94 @@ export default function LoginForm({ onClose, onNavigationStart }: LoginFormProps
           </>
         ) : (
           <>
-            <form onSubmit={onRegisterSubmit} className="space-y-4">
+            <form onSubmit={onRegisterSubmit} className="space-y-6">
               <div className="space-y-2">
-                <Label htmlFor="username">Username</Label>
-                <Input
+                <Label htmlFor="username" className="text-base mb-1">Username</Label>                <Input
                   id="username"
                   type="text"
                   value={registerUsername}
                   onChange={(e) => setRegisterUsername(e.target.value)}
                   disabled={isSubmitting}
+                  className="py-6 text-base"
                   required
                 />
                 {errors.username && (
-                  <p className="text-sm text-red-500">{errors.username}</p>
+                  <p className="text-sm font-medium text-destructive mt-1">{errors.username}</p>
                 )}
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="register-email">Email</Label>
-                <Input
+                <Label htmlFor="register-email" className="text-base mb-1">Email</Label>                <Input
                   id="register-email"
                   type="email"
                   value={registerEmail}
                   onChange={(e) => setRegisterEmail(e.target.value)}
                   disabled={isSubmitting}
+                  className="py-6 text-base"
                   required
                 />
                 {errors.email && (
-                  <p className="text-sm text-red-500">{errors.email}</p>
+                  <p className="text-sm font-medium text-destructive mt-1">{errors.email}</p>
                 )}
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="register-password">Password</Label>
-                <Input
+                <Label htmlFor="register-password" className="text-base mb-1">Password</Label>                <Input
                   id="register-password"
                   type="password"
                   value={registerPassword}
                   onChange={(e) => setRegisterPassword(e.target.value)}
                   disabled={isSubmitting}
+                  className="py-6 text-base"
                   required
                 />
                 {errors.password && (
-                  <p className="text-sm text-red-500">{errors.password}</p>
+                  <p className="text-sm font-medium text-destructive mt-1">{errors.password}</p>
                 )}
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="confirm-password">Confirm Password</Label>
-                <Input
+                <Label htmlFor="confirm-password" className="text-base mb-1">Confirm Password</Label>                <Input
                   id="confirm-password"
                   type="password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   disabled={isSubmitting}
+                  className="py-6 text-base"
                   required
                 />
                 {errors.confirmPassword && (
-                  <p className="text-sm text-red-500">{errors.confirmPassword}</p>
+                  <p className="text-sm font-medium text-destructive mt-1">{errors.confirmPassword}</p>
                 )}
               </div>
-              
-              <Button
+                <Button
                 type="submit"
-                className="w-full"
+                className="w-full py-6 text-lg"
                 disabled={isSubmitting}
               >
                 {isSubmitting ? "Creating Account..." : "Sign Up"}
               </Button>
             </form>
 
-            <div className="relative my-6">
+            <div className="relative my-8">
               <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-300"></div>
+                <div className="w-full border-t border-gray-200"></div>
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white text-gray-500">Or continue with</span>
+                <span className="px-4 bg-card text-muted-foreground">Or continue with</span>
               </div>
             </div>
 
             <GoogleLoginButton />
           </>
         )}
-        
-        <div className="mt-4 text-center">
-          <p className="text-sm text-gray-600">
+          <div className="mt-8 text-center">
+          <p className="text-base text-muted-foreground">
             {isLogin ? "Don't have an account? " : "Already have an account? "}
             <button
               type="button"
               onClick={handleFormSwitch}
-              className="text-primary hover:underline"
+              className="text-primary font-medium hover:underline"
               disabled={isSubmitting}
             >
               {isLogin ? "Sign up" : "Log in"}
