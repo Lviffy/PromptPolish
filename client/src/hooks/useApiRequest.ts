@@ -1,5 +1,6 @@
 import { useAuth } from "@/lib/auth";
 import { apiRequest as baseApiRequest } from "@/lib/queryClient";
+import { auth } from "@/lib/firebase";
 
 export function useApiRequest() {
   const { user } = useAuth();
@@ -13,6 +14,12 @@ export function useApiRequest() {
 
     if (data) {
       headers['Content-Type'] = 'application/json';
+    }
+
+    // Add Firebase ID token if user is logged in
+    if (auth.currentUser) {
+      const token = await auth.currentUser.getIdToken();
+      headers['Authorization'] = `Bearer ${token}`;
     }
 
     if (user?.id) {

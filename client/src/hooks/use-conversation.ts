@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useApiRequest } from "./useApiRequest";
 import { useAuth } from "@/lib/auth";
 import { geminiModel } from "@/lib/gemini";
 import { ChatConversation } from "./use-chat-history";
+import { nanoid } from 'nanoid';
 
 export interface ChatMessage {
   id: string;
@@ -46,11 +47,11 @@ export function useConversation(conversationId?: string) {
         return response.json();
       } catch (error) {
         console.error("Error fetching conversation:", error);
-        // Return null as fallback when API is not available
         return null;
       }
     },
     enabled: !!userId && !!conversationId,
+    staleTime: 30000, // Cache for 30 seconds
   });
   
   // Add a message to the conversation
@@ -60,7 +61,7 @@ export function useConversation(conversationId?: string) {
       
       const messageWithTimestamp = {
         ...message,
-        id: Date.now().toString(),
+        id: nanoid(),
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       };
       
@@ -75,12 +76,10 @@ export function useConversation(conversationId?: string) {
           
           return await response.json();
         } else {
-          // If no conversationId, return the message directly (for local handling)
           return messageWithTimestamp;
         }
       } catch (error) {
         console.error("Error adding message:", error);
-        // Return message for local handling when API is not available
         return messageWithTimestamp;
       }
     },
@@ -90,50 +89,57 @@ export function useConversation(conversationId?: string) {
       }
     },
   });
-  
-  // Initialize messages from local storage if available
+
+  // Initialize messages from conversation data
   useEffect(() => {
-    if (!userId || !conversationId || isInitialized) return;
+    if (!conversationData?.messages || isInitialized) return;
     
-    const localStorageKey = `chat_messages_${userId}_${conversationId}`;
-    const storedMessages = localStorage.getItem(localStorageKey);
-    
-    if (storedMessages) {
-      setMessages(JSON.parse(storedMessages));
-    } else if (!isLoading && !conversationData) {
-      // If no stored messages and no conversation data, initialize with welcome message
-      setMessages([{
-        id: "1",
-        content: "I am your AI assistant designed to help you craft better prompts for any purpose. How can I help you today?",
-        isUser: false,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        conversationId,
-      }]);
-    }
-    
-    setIsInitialized(true);
-  }, [userId, conversationId, isInitialized, isLoading, conversationData]);
-  
-  // Save messages to local storage
-  useEffect(() => {
-    if (!userId || !conversationId || messages.length === 0) return;
-    
-    const localStorageKey = `chat_messages_${userId}_${conversationId}`;
-    localStorage.setItem(localStorageKey, JSON.stringify(messages));
-  }, [messages, userId, conversationId]);
-  
-  // Set messages from API data if available
-  useEffect(() => {
-    if (!conversationData?.messages || conversationData.messages.length === 0) return;
-    
-    setMessages(conversationData.messages.map((msg: any) => ({
+    const formattedMessages = conversationData.messages.map((msg: any) => ({
       ...msg,
       timestamp: msg.timestamp || new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    })));
-  }, [conversationData]);
+    }));
+    
+    setMessages(formattedMessages);
+    setIsInitialized(true);
+  }, [conversationData, isInitialized]);
+
+  // Get response from Gemini
+  const getGeminiResponse = useCallback(async (prompt: string): Promise<string> => {
+    try {
+      if (!geminiModel) {
+        return "I'm sorry, but I'm currently unable to process your request. Please try again later.";
+      }
+      
+      // Build conversation context from recent messages (up to 5)
+      const recentMessages = messages.slice(-5);
+      const conversationContext = recentMessages
+        .map(msg => `${msg.isUser ? 'User' : 'AI'}: ${msg.content}`)
+        .join('\n\n');
+      
+      // Build system prompt
+      const systemPrompt = `
+        You are an expert prompt enhancer called PromptPolish AI. Your job is to help users create better prompts for any purpose.
+        
+        Recent conversation context:
+        ${conversationContext}
+        
+        User's message: "${prompt}"
+        
+        Respond in a helpful, friendly manner. If the user is asking about how to improve a prompt, provide specific guidance on improving clarity, specificity, structure, and effectiveness. If they share a prompt for enhancement, analyze it and suggest improvements.
+      `;
+      
+      // Call Gemini API
+      const result = await geminiModel.generateContent(systemPrompt);
+      const response = result.response;
+      return response.text();
+    } catch (error) {
+      console.error("Error getting Gemini response:", error);
+      return "I'm sorry, but I encountered an error while processing your request. Please try again.";
+    }
+  }, [messages]);
   
   // Add a user message and get AI response
-  const sendMessage = async (content: string) => {
+  const sendMessage = useCallback(async (content: string) => {
     if (!content.trim()) return;
     
     // Add user message
@@ -176,77 +182,14 @@ export function useConversation(conversationId?: string) {
       
       return addedErrorMessage;
     }
-  };
-  
-  // Get response from Gemini
-  const getGeminiResponse = async (prompt: string): Promise<string> => {
-    try {
-      // Fallback to client-side response if Gemini API is not available
-      if (!geminiModel) {
-        return getLocalResponse(prompt);
-      }
-      
-      // Build conversation context from recent messages (up to 5)
-      const recentMessages = messages.slice(-5);
-      const conversationContext = recentMessages
-        .map(msg => `${msg.isUser ? 'User' : 'AI'}: ${msg.content}`)
-        .join('\n\n');
-      
-      // Build system prompt
-      const systemPrompt = `
-        You are an expert prompt enhancer called PromptPolish AI. Your job is to help users create better prompts for any purpose.
-        
-        Recent conversation context:
-        ${conversationContext}
-        
-        User's message: "${prompt}"
-        
-        Respond in a helpful, friendly manner. If the user is asking about how to improve a prompt, provide specific guidance on improving clarity, specificity, structure, and effectiveness. If they share a prompt for enhancement, analyze it and suggest improvements.
-      `;
-      
-      // Call Gemini API
-      const result = await geminiModel.generateContent(systemPrompt);
-      const response = result.response;
-      return response.text();
-    } catch (error) {
-      console.error("Error getting Gemini response:", error);
-      return getLocalResponse(prompt);
-    }
-  };
-  
-  // Fallback response generator for when API is not available
-  const getLocalResponse = (prompt: string): string => {
-    const lowerPrompt = prompt.toLowerCase();
-    
-    if (lowerPrompt.includes("hello") || lowerPrompt.includes("hi")) {
-      return "Hello! 👋 I'm here to help you craft more effective prompts. What kind of prompt would you like to improve today?";
-    } else if (lowerPrompt.includes("help")) {
-      return "I'd be happy to help you improve your prompts! Here's how I can assist:\n\n• Enhance clarity and structure\n• Add specificity and context\n• Adjust tone and style\n• Optimize for your specific use case\n\nJust share your prompt, and I'll suggest improvements!";
-    } else if (lowerPrompt.includes("example")) {
-      return "Here's an example of how I can improve a prompt:\n\n**Original**: \"Generate a story about a dog.\"\n\n**Enhanced**: \"Generate a heartwarming short story (300-500 words) about a loyal dog who helps their elderly owner navigate a challenging situation. Include descriptive language and focus on the emotional bond between them. The story should have a positive resolution that highlights the dog's intuitive understanding of human emotions.\"\n\nNotice how the enhanced version provides specific details about length, tone, characters, plot elements, and desired outcome. Would you like me to help enhance one of your prompts in a similar way?";
-    } else if (lowerPrompt.includes("prompt") && lowerPrompt.length > 100) {
-      return "Thank you for sharing your prompt! Here's my enhanced version:\n\n**Original**: " + prompt + "\n\n**Enhanced version**:\n\n" + prompt + " [Now with greater specificity about the desired outcome, clearer structure, and more contextual details to guide the response in the direction you want. I've maintained your original intent while adding parameters that will help produce more consistent, high-quality responses.]";
-    } else {
-      return "I'm your prompt enhancement assistant! I can help you create more effective prompts for any purpose - whether for AI systems, creative writing, technical documentation, or professional communications.\n\nTo get started, you can:\n\n• Share a prompt you'd like to improve\n• Ask for tips on a specific type of prompt\n• Request examples of effective prompts\n• Tell me what you're trying to accomplish\n\nWhat would you like to work on today?";
-    }
-  };
-  
-  // Clear all messages and start a new conversation
-  const clearMessages = () => {
-    setMessages([{
-      id: "1",
-      content: "I am your AI assistant designed to help you craft better prompts for any purpose. How can I help you today?",
-      isUser: false,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      conversationId,
-    }]);
-    
-    if (userId && conversationId) {
-      const localStorageKey = `chat_messages_${userId}_${conversationId}`;
-      localStorage.removeItem(localStorageKey);
-    }
-  };
-  
+  }, [conversationId, addMessageMutation, getGeminiResponse]);
+
+  // Clear messages
+  const clearMessages = useCallback(() => {
+    setMessages([]);
+    setIsInitialized(false);
+  }, []);
+
   return {
     messages,
     isLoading,

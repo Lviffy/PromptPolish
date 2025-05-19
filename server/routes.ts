@@ -6,19 +6,72 @@ import { z } from "zod";
 import { fromZodError } from "zod-validation-error";
 import { ZodError } from "zod";
 import bcrypt from 'bcryptjs'; // Import bcryptjs
+import helmet from 'helmet';
+import { 
+  firebaseAuthenticate, 
+  generateToken, 
+  loginLimiter, 
+  validatePassword,
+  initializePassport,
+  handleAuthError
+} from './auth';
 
 // Add Gemini API client
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenerativeAI, GenerativeModel } from "@google/generative-ai";
+import { v4 as uuidv4 } from 'uuid';
+import { nanoid } from 'nanoid';
+
+// In-memory chat storage
+const chats: Record<string, { id: string; userId: string; messages: { id: string; content: string; isUser: boolean; timestamp: string; }[] }> = {};
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Initialize security middleware with custom CSP
+  app.use(helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://*.replit.com", "https://www.googletagmanager.com"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", "data:", "https:"],
+        fontSrc: ["'self'", "data:"],
+        connectSrc: ["'self'", "https://*.firebaseio.com", "https://*.googleapis.com", "https://*.replit.com", "wss://*.firebaseio.com"],
+        frameSrc: ["'self'", "https://*.replit.com"],
+        objectSrc: ["'none'"],
+        baseUri: ["'self'"],
+        formAction: ["'self'"],
+        frameAncestors: ["'none'"],
+        blockAllMixedContent: [],
+        upgradeInsecureRequests: []
+      }
+    },
+    crossOriginEmbedderPolicy: false,
+    crossOriginResourcePolicy: { policy: "cross-origin" }
+  }));
+  app.use(initializePassport());
+
   // Initialize Gemini API
   const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
-  const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+  console.log('Gemini API Key loaded:', !!process.env.GEMINI_API_KEY);
+  const model = genAI.getGenerativeModel({ 
+    model: "gemini-2.0-flash",
+    generationConfig: {
+      temperature: 0.7,
+      topP: 0.9,
+      topK: 40,
+    }
+  });
 
   // Auth endpoints
   app.post("/api/auth/register", async (req, res) => {
     try {
       const { username, email, password } = req.body;
+      
+      // Validate password
+      if (!validatePassword(password)) {
+        return res.status(400).json({ 
+          message: "Password must be at least 8 characters long and contain uppercase, lowercase, numbers, and special characters" 
+        });
+      }
       
       // Check if user exists
       const existingUser = await storage.getUserByEmail(email);
@@ -27,15 +80,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Hash the password
-      const hashedPassword = await bcrypt.hash(password, 10); // Salt rounds: 10
+      const hashedPassword = await bcrypt.hash(password, 10);
 
       // Create user with hashed password
-      console.log("Attempting to create user:", { username, email }); // Log attempt
+      console.log("Attempting to create user:", { username, email });
       const user = await storage.createUser({ username, email, password: hashedPassword });
-      console.log("User created successfully:", { id: user.id, username: user.username, email: user.email }); // Log success
-      res.status(201).json({ id: user.id, username: user.username, email: user.email });
+      console.log("User created successfully:", { id: user.id, username: user.username, email: user.email });
+      
+      // Generate JWT token
+      const token = generateToken(user);
+      
+      res.status(201).json({ 
+        id: user.id, 
+        username: user.username, 
+        email: user.email,
+        token 
+      });
     } catch (error) {
-      console.error("Error creating user:", error); // Log the actual error
+      console.error("Error creating user:", error);
       if (error instanceof Error) {
         console.error("Error details:", {
           message: error.message,
@@ -47,7 +109,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/auth/login", async (req, res) => {
+  app.post("/api/auth/login", loginLimiter, async (req, res) => {
     try {
       const { email, password } = req.body;
       
@@ -63,17 +125,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "Invalid credentials" });
       }
       
-      // In a real app, we would create a session and return a token
-      // For now, just return user info (excluding password)
-      res.status(200).json({ id: user.id, username: user.username, email: user.email });
+      // Generate JWT token
+      const token = generateToken(user);
+      
+      res.status(200).json({ 
+        id: user.id, 
+        username: user.username, 
+        email: user.email,
+        token 
+      });
     } catch (error) {
-      console.error("Error logging in:", error); // Log the actual error
+      console.error("Error logging in:", error);
       res.status(500).json({ message: "Error logging in" });
     }
   });
 
+  // Protected routes
+  app.use('/api/prompts', firebaseAuthenticate);
+
   // Prompt enhancement endpoint
-  app.post("/api/enhance", async (req, res) => {
+  app.post("/api/enhance", firebaseAuthenticate, async (req, res) => {
     try {
       const validatedData = enhancePromptSchema.parse(req.body);
       const { prompt, promptType, enhancementFocus } = validatedData;
@@ -140,13 +211,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       console.error("Error enhancing prompt:", error);
-      // Log more details about the error
       if (error instanceof Error) {
         console.error("Error details:", {
           message: error.message,
           stack: error.stack,
           name: error.name,
-          // Include other relevant properties if available, e.g., error.status
         });
       } else if (typeof error === 'object' && error !== null) {
          console.error("Error object:", error);
@@ -158,11 +227,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Prompt history endpoints
   app.get("/api/prompts", async (req, res) => {
     try {
-      const userId = req.query.userId as string;
-      if (!userId) {
-        return res.status(400).json({ message: "User ID is required" });
-      }
-      
+      const userId = req.user.id;
       const prompts = await storage.getPromptsByUserId(userId);
       res.json(prompts);
     } catch (error) {
@@ -172,7 +237,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/prompts", async (req, res) => {
     try {
-      const { userId, originalPrompt, enhancedPrompt, promptType, enhancementFocus, improvements, isFavorite } = req.body;
+      const { originalPrompt, enhancedPrompt, promptType, enhancementFocus, improvements, isFavorite } = req.body;
+      const userId = req.user.id;
       
       const prompt = await storage.createPrompt({
         userId,
@@ -204,11 +270,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/prompts/favorites", async (req, res) => {
     try {
-      const userId = req.query.userId as string;
-      if (!userId) {
-        return res.status(400).json({ message: "User ID is required" });
-      }
-      
+      const userId = req.user.id;
       const favorites = await storage.getFavoritePromptsByUserId(userId);
       res.json(favorites);
     } catch (error) {
@@ -216,201 +278,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Add this before the httpServer creation
-  app.get("/api/test-db", async (req, res) => {
+  // Create a new chat
+  app.post('/api/chat', firebaseAuthenticate, (req, res) => {
     try {
-      const testUser = await storage.getUserByEmail(req.query.email as string);
-      res.json({ 
-        success: true, 
-        user: testUser,
-        storageType: storage instanceof PostgresStorage ? "PostgreSQL" : "Memory"
-      });
+      const chatId = nanoid();
+      chats[chatId] = { id: chatId, userId: req.user.id, messages: [] };
+      res.status(201).json({ chatId });
     } catch (error) {
-      console.error("Database test error:", error);
-      res.status(500).json({ 
-        success: false, 
-        error: error instanceof Error ? error.message : "Unknown error",
-        storageType: storage instanceof PostgresStorage ? "PostgreSQL" : "Memory"
-      });
+      console.error('Error creating chat:', error);
+      res.status(500).json({ message: 'Error creating chat' });
     }
   });
 
-  // Temporary endpoint to test Gemini API
-  app.get("/api/test-gemini", async (req, res) => {
+  // Send a message and get Gemini response
+  app.post('/api/chat/:chatId/message', firebaseAuthenticate, async (req, res) => {
     try {
-      const prompt = "Write a very short test response.";
-      console.log("Testing Gemini API with prompt:", prompt);
-      const result = await model.generateContent(prompt);
-      const response = result.response;
-      const text = response.text();
-      console.log("Gemini API test successful. Response:", text);
-      res.json({ success: true, message: "Gemini API test successful", response: text });
-    } catch (error: any) {
-      console.error("Gemini API test failed:", error);
-      res.status(500).json({ 
-        success: false, 
-        message: "Gemini API test failed", 
-        error: error.message || "Unknown error"
-      });
-    }
-  });
-
-  // Conversation endpoints
-  app.get("/api/conversations", async (req, res) => {
-    try {
-      const userId = req.query.userId as string;
-      if (!userId) {
-        return res.status(400).json({ message: "User ID is required" });
-      }
-      
-      // Get user by id (assuming userId is stored in email field as mentioned in storage implementation)
-      const user = await storage.getUserByEmail(userId);
-      if (!user) {
-        return res.status(404).json({ message: "User not found" });
-      }
-      
-      const conversations = await storage.getConversationsByUserId(user.id);
-      res.json(conversations);
-    } catch (error) {
-      console.error("Error fetching conversations:", error);
-      res.status(500).json({ message: "Error fetching conversations" });
-    }
-  });
-
-  app.get("/api/conversations/:id", async (req, res) => {
-    try {
-      const conversationId = req.params.id;
-      
+      const { chatId } = req.params;
+      const { content } = req.body;
+      if (!content) return res.status(400).json({ message: 'Message content is required' });
+      const chat = chats[chatId];
+      if (!chat) return res.status(404).json({ message: 'Chat not found' });
+      if (chat.userId !== req.user.id) return res.status(403).json({ message: 'Access denied' });
+      // Add user message
+      const userMsg = { id: nanoid(), content, isUser: true, timestamp: new Date().toISOString() };
+      chat.messages.push(userMsg);
+      // Build context for Gemini
+      const context = chat.messages.slice(-10).map(m => `${m.isUser ? 'User' : 'AI'}: ${m.content}`).join('\n');
+      const systemPrompt = `You are PromptPolish AI. Help users improve prompts.\n\n${context}\n\nUser: ${content}`;
+      // Get Gemini response
+      let aiText = '';
       try {
-        const conversation = await storage.getConversationWithMessages(conversationId);
-        res.json(conversation);
-      } catch (error) {
-        if (error instanceof Error && error.message.includes("not found")) {
-          return res.status(404).json({ message: "Conversation not found" });
-        }
-        throw error;
+        const result = await model.generateContent(systemPrompt);
+        aiText = result.response.text();
+        // Sanitize: remove leading asterisks and extra whitespace from each line, and collapse multiple blank lines
+        aiText = aiText.replace(/^[*]+[ \t]*/gm, '').replace(/\n{2,}/g, '\n\n').trim();
+      } catch (err) {
+        console.error('Gemini error:', err);
+        aiText = "I'm sorry, but I encountered an error while processing your request.";
       }
+      const aiMsg = { id: nanoid(), content: aiText, isUser: false, timestamp: new Date().toISOString() };
+      chat.messages.push(aiMsg);
+      res.status(201).json({ user: userMsg, ai: aiMsg });
     } catch (error) {
-      console.error("Error fetching conversation:", error);
-      res.status(500).json({ message: "Error fetching conversation" });
+      console.error('Error in chat message:', error);
+      res.status(500).json({ message: 'Error processing chat message' });
     }
   });
 
-  app.post("/api/conversations", async (req, res) => {
+  // Get chat history
+  app.get('/api/chat/:chatId', firebaseAuthenticate, (req, res) => {
     try {
-      const { userId, title } = req.body;
-      
-      if (!userId) {
-        return res.status(400).json({ message: "User ID is required" });
-      }
-      
-      if (!title) {
-        return res.status(400).json({ message: "Title is required" });
-      }
-      
-      // Get user by id (assuming userId is stored in email field as mentioned in storage implementation)
-      const user = await storage.getUserByEmail(userId);
-      if (!user) {
-        return res.status(404).json({ message: "User not found" });
-      }
-      
-      const conversation = await storage.createConversation({
-        userId: user.id,
-        title
-      });
-      
-      res.status(201).json(conversation);
+      const { chatId } = req.params;
+      const chat = chats[chatId];
+      if (!chat) return res.status(404).json({ message: 'Chat not found' });
+      if (chat.userId !== req.user.id) return res.status(403).json({ message: 'Access denied' });
+      res.json({ messages: chat.messages });
     } catch (error) {
-      console.error("Error creating conversation:", error);
-      res.status(500).json({ message: "Error creating conversation" });
+      console.error('Error getting chat history:', error);
+      res.status(500).json({ message: 'Error getting chat history' });
     }
   });
 
-  app.patch("/api/conversations/:id", async (req, res) => {
-    try {
-      const conversationId = req.params.id;
-      const { title } = req.body;
-      
-      if (!title) {
-        return res.status(400).json({ message: "Title is required" });
-      }
-      
-      try {
-        const updatedConversation = await storage.updateConversationTitle(conversationId, title);
-        res.json(updatedConversation);
-      } catch (error) {
-        if (error instanceof Error && error.message.includes("not found")) {
-          return res.status(404).json({ message: "Conversation not found" });
-        }
-        throw error;
-      }
-    } catch (error) {
-      console.error("Error updating conversation:", error);
-      res.status(500).json({ message: "Error updating conversation" });
-    }
-  });
-
-  app.delete("/api/conversations/:id", async (req, res) => {
-    try {
-      const conversationId = req.params.id;
-      
-      try {
-        await storage.deleteConversation(conversationId);
-        res.status(204).send();
-      } catch (error) {
-        if (error instanceof Error && error.message.includes("not found")) {
-          return res.status(404).json({ message: "Conversation not found" });
-        }
-        throw error;
-      }
-    } catch (error) {
-      console.error("Error deleting conversation:", error);
-      res.status(500).json({ message: "Error deleting conversation" });
-    }
-  });
-
-  app.post("/api/conversations/:id/messages", async (req, res) => {
-    try {
-      const conversationId = req.params.id;
-      const { content, isUser } = req.body;
-      
-      if (content === undefined) {
-        return res.status(400).json({ message: "Message content is required" });
-      }
-      
-      if (isUser === undefined) {
-        return res.status(400).json({ message: "isUser flag is required" });
-      }
-      
-      try {
-        // Check if conversation exists
-        const conversation = await storage.getConversationById(conversationId);
-        if (!conversation) {
-          return res.status(404).json({ message: "Conversation not found" });
-        }
-        
-        // Create message
-        const message = await storage.createMessage({
-          conversationId,
-          content,
-          isUser
-        });
-        
-        // Update conversation's updatedAt timestamp
-        await storage.updateConversationTitle(conversationId, conversation.title);
-        
-        res.status(201).json(message);
-      } catch (error) {
-        if (error instanceof Error && error.message.includes("not found")) {
-          return res.status(404).json({ message: "Conversation not found" });
-        }
-        throw error;
-      }
-    } catch (error) {
-      console.error("Error creating message:", error);
-      res.status(500).json({ message: "Error creating message" });
-    }
-  });
+  // Error handling middleware
+  app.use(handleAuthError);
 
   const httpServer = createServer(app);
   return httpServer;
