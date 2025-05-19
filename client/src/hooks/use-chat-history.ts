@@ -17,7 +17,7 @@ export interface ChatConversation {
 }
 
 export function useChatHistory() {
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const queryClient = useQueryClient();
   const { apiRequest } = useApiRequest();
   const userId = user?.id;
@@ -30,11 +30,9 @@ export function useChatHistory() {
   } = useQuery({
     queryKey: ["/api/conversations", userId],
     queryFn: async () => {
-      if (!userId) return [];
+      if (!isAuthenticated || !userId) return [];
       try {
-        const response = await fetch(`/api/conversations?userId=${userId}`, {
-          credentials: "include",
-        });
+        const response = await apiRequest("GET", "/api/conversations");
         
         if (!response.ok) {
           const errorBody = await response.json();
@@ -48,17 +46,16 @@ export function useChatHistory() {
         return [];
       }
     },
-    enabled: !!userId,
+    enabled: isAuthenticated && !!userId,
   });
 
   // Create a new conversation
   const createConversationMutation = useMutation({
     mutationFn: async (title: string) => {
-      if (!userId) throw new Error("User not authenticated");
+      if (!isAuthenticated || !userId) throw new Error("User not authenticated");
       
       try {
         const response = await apiRequest("POST", "/api/conversations", {
-          userId,
           title,
           createdAt: new Date().toISOString(),
         });
@@ -88,7 +85,7 @@ export function useChatHistory() {
   // Delete a conversation
   const deleteConversationMutation = useMutation({
     mutationFn: async (id: string) => {
-      if (!userId) throw new Error("User not authenticated");
+      if (!isAuthenticated || !userId) throw new Error("User not authenticated");
       
       try {
         const response = await apiRequest("DELETE", `/api/conversations/${id}`);

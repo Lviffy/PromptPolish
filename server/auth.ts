@@ -8,11 +8,14 @@ import { storage } from './storage';
 import rateLimit from 'express-rate-limit';
 // Firebase Admin SDK
 import admin from 'firebase-admin';
+import path from 'path';
 
 // Initialize Firebase Admin if not already initialized
 if (!admin.apps.length) {
+  const serviceAccount = require('./firebase-service-account.json');
+  
   admin.initializeApp({
-    credential: admin.credential.applicationDefault(),
+    credential: admin.credential.cert(serviceAccount)
   });
 }
 
@@ -124,6 +127,29 @@ export const authorize = (roles: string[]) => {
   };
 };
 
+// Middleware to verify Firebase ID token
+export const firebaseAuthenticate = async (req: Request, res: Response, next: NextFunction) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ message: 'No token provided' });
+  }
+
+  const idToken = authHeader.split('Bearer ')[1];
+  try {
+    const decodedToken = await admin.auth().verifyIdToken(idToken);
+    req.user = {
+      id: decodedToken.uid,
+      email: decodedToken.email,
+      username: decodedToken.name || decodedToken.email?.split('@')[0],
+      photoURL: decodedToken.picture,
+    };
+    next();
+  } catch (error) {
+    console.error('Firebase auth error:', error);
+    return res.status(401).json({ message: 'Invalid or expired token' });
+  }
+};
+
 // Error handling middleware
 export const handleAuthError = (err: any, req: Request, res: Response, next: NextFunction) => {
   console.error('Authentication error:', err);
@@ -133,26 +159,4 @@ export const handleAuthError = (err: any, req: Request, res: Response, next: Nex
 // Initialize passport
 export const initializePassport = () => {
   return passport.initialize();
-};
-
-// Middleware to verify Firebase ID token
-export const firebaseAuthenticate = async (req: Request, res: Response, next: NextFunction) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ message: 'No token provided' });
-  }
-  const idToken = authHeader.split('Bearer ')[1];
-  try {
-    const decodedToken = await admin.auth().verifyIdToken(idToken);
-    req.user = {
-      id: decodedToken.uid,
-      email: decodedToken.email,
-      username: decodedToken.name || decodedToken.email,
-      photoURL: decodedToken.picture,
-    };
-    next();
-  } catch (error) {
-    console.error('Firebase auth error:', error);
-    return res.status(401).json({ message: 'Invalid or expired token' });
-  }
 }; 

@@ -1,4 +1,4 @@
-import type { Express } from "express";
+import express from "express";
 import { createServer, type Server } from "http";
 import { storage, PostgresStorage } from "./storage";
 import { enhancePromptSchema } from "@shared/schema";
@@ -6,15 +6,51 @@ import { z } from "zod";
 import { fromZodError } from "zod-validation-error";
 import { ZodError } from "zod";
 import bcrypt from 'bcryptjs'; // Import bcryptjs
-
-// Add Gemini API client
+import { log } from "./vite";
+import { authenticate, optionalAuth } from "./auth";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-export async function registerRoutes(app: Express): Promise<Server> {
-  // Initialize Gemini API
-  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
-  const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+// Extend Express Request type to include user
+declare global {
+  namespace Express {
+    interface Request {
+      user?: {
+        id: string;
+      };
+    }
+  }
+}
 
+// Initialize Gemini API
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+const model = genAI.getGenerativeModel({ 
+  model: "gemini-2.0-flash",
+  generationConfig: {
+    temperature: 0.7,
+    topK: 40,
+    topP: 0.95,
+    maxOutputTokens: 1024,
+  }
+});
+
+// Middleware to extract Firebase user ID from Authorization header
+const extractFirebaseUserId = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ message: 'No token provided' });
+  }
+  
+  const userId = authHeader.split('Bearer ')[1];
+  if (!userId) {
+    return res.status(401).json({ message: 'Invalid token format' });
+  }
+  
+  req.user = { id: userId };
+  next();
+};
+
+// Auth endpoints
+export async function registerRoutes(app: express.Application): Promise<Server> {
   // Auth endpoints
   app.post("/api/auth/register", async (req, res) => {
     try {
@@ -256,20 +292,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Conversation endpoints
-  app.get("/api/conversations", async (req, res) => {
+  app.get("/api/conversations", extractFirebaseUserId, async (req, res) => {
     try {
-      const userId = req.query.userId as string;
+      const userId = req.user?.id;
       if (!userId) {
-        return res.status(400).json({ message: "User ID is required" });
+        return res.status(401).json({ message: "User not authenticated" });
       }
       
-      // Get user by id (assuming userId is stored in email field as mentioned in storage implementation)
-      const user = await storage.getUserByEmail(userId);
-      if (!user) {
-        return res.status(404).json({ message: "User not found" });
-      }
-      
-      const conversations = await storage.getConversationsByUserId(user.id);
+      const conversations = await storage.getConversationsByUserId(userId);
       res.json(conversations);
     } catch (error) {
       console.error("Error fetching conversations:", error);
@@ -277,12 +307,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/conversations/:id", async (req, res) => {
+  app.get("/api/conversations/:id", extractFirebaseUserId, async (req, res) => {
     try {
       const conversationId = req.params.id;
+      const userId = req.user?.id;
+      
+      if (!userId) {
+        return res.status(401).json({ message: "User not authenticated" });
+      }
       
       try {
         const conversation = await storage.getConversationWithMessages(conversationId);
+        // Verify the conversation belongs to the user
+        if (conversation.userId !== userId) {
+          return res.status(403).json({ message: "Access denied" });
+        }
         res.json(conversation);
       } catch (error) {
         if (error instanceof Error && error.message.includes("not found")) {
@@ -296,26 +335,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/conversations", async (req, res) => {
+  app.post("/api/conversations", extractFirebaseUserId, async (req, res) => {
     try {
-      const { userId, title } = req.body;
+      const { title } = req.body;
+      const userId = req.user?.id;
       
       if (!userId) {
-        return res.status(400).json({ message: "User ID is required" });
+        return res.status(401).json({ message: "User not authenticated" });
       }
       
       if (!title) {
         return res.status(400).json({ message: "Title is required" });
       }
       
-      // Get user by id (assuming userId is stored in email field as mentioned in storage implementation)
-      const user = await storage.getUserByEmail(userId);
-      if (!user) {
-        return res.status(404).json({ message: "User not found" });
-      }
-      
       const conversation = await storage.createConversation({
-        userId: user.id,
+        userId,
         title
       });
       
@@ -369,10 +403,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/conversations/:id/messages", async (req, res) => {
+  app.post("/api/conversations/:id/messages", extractFirebaseUserId, async (req, res) => {
     try {
       const conversationId = req.params.id;
       const { content, isUser } = req.body;
+      const userId = req.user?.id;
+      
+      if (!userId) {
+        return res.status(401).json({ message: "User not authenticated" });
+      }
       
       if (content === undefined) {
         return res.status(400).json({ message: "Message content is required" });
@@ -383,10 +422,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       try {
-        // Check if conversation exists
+        // Check if conversation exists and belongs to user
         const conversation = await storage.getConversationById(conversationId);
         if (!conversation) {
           return res.status(404).json({ message: "Conversation not found" });
+        }
+        
+        if (conversation.userId !== userId) {
+          return res.status(403).json({ message: "Access denied" });
         }
         
         // Create message

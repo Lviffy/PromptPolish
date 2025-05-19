@@ -1,5 +1,5 @@
 import { useAuth } from "@/lib/auth";
-import { apiRequest as baseApiRequest } from "@/lib/queryClient";
+import { auth } from "@/lib/firebase";
 
 export function useApiRequest() {
   const { user } = useAuth();
@@ -7,31 +7,48 @@ export function useApiRequest() {
   const authenticatedApiRequest = async (
     method: string,
     url: string,
-    data?: unknown | undefined
+    data?: unknown | undefined,
+    options?: { headers?: HeadersInit }
   ) => {
-    const headers: HeadersInit = {};
+    if (!auth.currentUser) {
+      throw new Error('No authenticated user');
+    }
+
+    const headers = new Headers(options?.headers);
 
     if (data) {
-      headers['Content-Type'] = 'application/json';
+      headers.set('Content-Type', 'application/json');
     }
 
-    if (user?.id) {
-      headers['X-User-Id'] = user.id;
+    try {
+      // Force token refresh
+      const idToken = await auth.currentUser.getIdToken(true);
+      headers.set('Authorization', `Bearer ${idToken}`);
+
+      const res = await fetch(url, {
+        method,
+        headers,
+        body: data ? JSON.stringify(data) : undefined,
+        credentials: 'include',
+      });
+
+      if (res.status === 401) {
+        // If we get a 401, try to refresh the token and retry once
+        const newToken = await auth.currentUser.getIdToken(true);
+        headers.set('Authorization', `Bearer ${newToken}`);
+        return fetch(url, {
+          method,
+          headers,
+          body: data ? JSON.stringify(data) : undefined,
+          credentials: 'include',
+        });
+      }
+
+      return res;
+    } catch (error) {
+      console.error('API request error:', error);
+      throw error;
     }
-
-    const res = await fetch(url, {
-      method,
-      headers,
-      body: data ? JSON.stringify(data) : undefined,
-      credentials: 'include',
-    });
-
-    // We still need to handle the response status outside this hook,
-    // as the original apiRequest does.
-    // This simplified version just adds the header.
-    // The error handling like throwIfResNotOk should still be used where this hook is called.
-
-    return res;
   };
 
   return { apiRequest: authenticatedApiRequest };

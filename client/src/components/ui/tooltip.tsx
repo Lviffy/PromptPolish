@@ -28,3 +28,5 @@ const TooltipContent = React.forwardRef<
 TooltipContent.displayName = TooltipPrimitive.Content.displayName
 
 export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider }
+
+export default function Tooltip() { return <div>Tooltip (placeholder)</div>; }

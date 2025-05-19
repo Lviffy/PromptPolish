@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useApiRequest } from "./useApiRequest";
 import { useAuth } from "@/lib/auth";
-import { geminiModel } from "@/lib/gemini";
+import { getChatResponse } from "@/lib/gemini";
 import { ChatConversation } from "./use-chat-history";
 
 export interface ChatMessage {
@@ -14,7 +14,7 @@ export interface ChatMessage {
 }
 
 export function useConversation(conversationId?: string) {
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const queryClient = useQueryClient();
   const { apiRequest } = useApiRequest();
   const userId = user?.id;
@@ -31,12 +31,10 @@ export function useConversation(conversationId?: string) {
   } = useQuery({
     queryKey: ["/api/conversations", conversationId],
     queryFn: async () => {
-      if (!userId || !conversationId) return null;
+      if (!isAuthenticated || !userId || !conversationId) return null;
       
       try {
-        const response = await fetch(`/api/conversations/${conversationId}`, {
-          credentials: "include",
-        });
+        const response = await apiRequest("GET", `/api/conversations/${conversationId}`);
         
         if (!response.ok) {
           const errorBody = await response.json();
@@ -50,13 +48,13 @@ export function useConversation(conversationId?: string) {
         return null;
       }
     },
-    enabled: !!userId && !!conversationId,
+    enabled: isAuthenticated && !!userId && !!conversationId,
   });
   
   // Add a message to the conversation
   const addMessageMutation = useMutation({
     mutationFn: async (message: Omit<ChatMessage, "id" | "timestamp">) => {
-      if (!userId) throw new Error("User not authenticated");
+      if (!isAuthenticated || !userId) throw new Error("User not authenticated");
       
       const messageWithTimestamp = {
         ...message,
@@ -93,7 +91,7 @@ export function useConversation(conversationId?: string) {
   
   // Initialize messages from local storage if available
   useEffect(() => {
-    if (!userId || !conversationId || isInitialized) return;
+    if (!isAuthenticated || !userId || !conversationId || isInitialized) return;
     
     const localStorageKey = `chat_messages_${userId}_${conversationId}`;
     const storedMessages = localStorage.getItem(localStorageKey);
@@ -112,15 +110,15 @@ export function useConversation(conversationId?: string) {
     }
     
     setIsInitialized(true);
-  }, [userId, conversationId, isInitialized, isLoading, conversationData]);
+  }, [userId, conversationId, isInitialized, isLoading, conversationData, isAuthenticated]);
   
   // Save messages to local storage
   useEffect(() => {
-    if (!userId || !conversationId || messages.length === 0) return;
+    if (!isAuthenticated || !userId || !conversationId || messages.length === 0) return;
     
     const localStorageKey = `chat_messages_${userId}_${conversationId}`;
     localStorage.setItem(localStorageKey, JSON.stringify(messages));
-  }, [messages, userId, conversationId]);
+  }, [messages, userId, conversationId, isAuthenticated]);
   
   // Set messages from API data if available
   useEffect(() => {
@@ -134,6 +132,10 @@ export function useConversation(conversationId?: string) {
   
   // Add a user message and get AI response
   const sendMessage = async (content: string) => {
+    if (!isAuthenticated || !userId) {
+      throw new Error("Please log in to send messages");
+    }
+    
     if (!content.trim()) return;
     
     // Add user message
@@ -147,8 +149,14 @@ export function useConversation(conversationId?: string) {
     setMessages(prev => [...prev, addedUserMessage]);
     
     try {
+      // Convert messages to the format expected by getChatResponse
+      const conversationHistory = messages.map(msg => ({
+        role: msg.isUser ? 'user' : 'assistant',
+        content: msg.content
+      }));
+      
       // Get AI response using Gemini
-      const response = await getGeminiResponse(content);
+      const response = await getChatResponse(content, conversationHistory);
       
       // Add AI message
       const aiMessage: Omit<ChatMessage, "id" | "timestamp"> = {
@@ -178,59 +186,6 @@ export function useConversation(conversationId?: string) {
     }
   };
   
-  // Get response from Gemini
-  const getGeminiResponse = async (prompt: string): Promise<string> => {
-    try {
-      // Fallback to client-side response if Gemini API is not available
-      if (!geminiModel) {
-        return getLocalResponse(prompt);
-      }
-      
-      // Build conversation context from recent messages (up to 5)
-      const recentMessages = messages.slice(-5);
-      const conversationContext = recentMessages
-        .map(msg => `${msg.isUser ? 'User' : 'AI'}: ${msg.content}`)
-        .join('\n\n');
-      
-      // Build system prompt
-      const systemPrompt = `
-        You are an expert prompt enhancer called PromptPolish AI. Your job is to help users create better prompts for any purpose.
-        
-        Recent conversation context:
-        ${conversationContext}
-        
-        User's message: "${prompt}"
-        
-        Respond in a helpful, friendly manner. If the user is asking about how to improve a prompt, provide specific guidance on improving clarity, specificity, structure, and effectiveness. If they share a prompt for enhancement, analyze it and suggest improvements.
-      `;
-      
-      // Call Gemini API
-      const result = await geminiModel.generateContent(systemPrompt);
-      const response = result.response;
-      return response.text();
-    } catch (error) {
-      console.error("Error getting Gemini response:", error);
-      return getLocalResponse(prompt);
-    }
-  };
-  
-  // Fallback response generator for when API is not available
-  const getLocalResponse = (prompt: string): string => {
-    const lowerPrompt = prompt.toLowerCase();
-    
-    if (lowerPrompt.includes("hello") || lowerPrompt.includes("hi")) {
-      return "Hello! 👋 I'm here to help you craft more effective prompts. What kind of prompt would you like to improve today?";
-    } else if (lowerPrompt.includes("help")) {
-      return "I'd be happy to help you improve your prompts! Here's how I can assist:\n\n• Enhance clarity and structure\n• Add specificity and context\n• Adjust tone and style\n• Optimize for your specific use case\n\nJust share your prompt, and I'll suggest improvements!";
-    } else if (lowerPrompt.includes("example")) {
-      return "Here's an example of how I can improve a prompt:\n\n**Original**: \"Generate a story about a dog.\"\n\n**Enhanced**: \"Generate a heartwarming short story (300-500 words) about a loyal dog who helps their elderly owner navigate a challenging situation. Include descriptive language and focus on the emotional bond between them. The story should have a positive resolution that highlights the dog's intuitive understanding of human emotions.\"\n\nNotice how the enhanced version provides specific details about length, tone, characters, plot elements, and desired outcome. Would you like me to help enhance one of your prompts in a similar way?";
-    } else if (lowerPrompt.includes("prompt") && lowerPrompt.length > 100) {
-      return "Thank you for sharing your prompt! Here's my enhanced version:\n\n**Original**: " + prompt + "\n\n**Enhanced version**:\n\n" + prompt + " [Now with greater specificity about the desired outcome, clearer structure, and more contextual details to guide the response in the direction you want. I've maintained your original intent while adding parameters that will help produce more consistent, high-quality responses.]";
-    } else {
-      return "I'm your prompt enhancement assistant! I can help you create more effective prompts for any purpose - whether for AI systems, creative writing, technical documentation, or professional communications.\n\nTo get started, you can:\n\n• Share a prompt you'd like to improve\n• Ask for tips on a specific type of prompt\n• Request examples of effective prompts\n• Tell me what you're trying to accomplish\n\nWhat would you like to work on today?";
-    }
-  };
-  
   // Clear all messages and start a new conversation
   const clearMessages = () => {
     setMessages([{
@@ -252,6 +207,7 @@ export function useConversation(conversationId?: string) {
     isLoading,
     error,
     sendMessage,
-    clearMessages
+    clearMessages,
+    isAuthenticated,
   };
 }

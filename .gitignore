@@ -4,10 +4,6 @@ dist
 server/public
 vite.config.ts.*
 *.tar.gz
-<<<<<<< HEAD
 .env
 # Firebase
 server/firebase-service-account.json
-=======
-.env
->>>>>>> 5699f726c3337938823c07faab230685f6716714

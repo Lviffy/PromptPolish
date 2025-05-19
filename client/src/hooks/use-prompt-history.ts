@@ -1,12 +1,11 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Prompt, InsertPrompt } from "@shared/schema";
-import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/lib/auth";
 import { useApiRequest } from "./useApiRequest";
 
 export function usePromptHistory() {
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const queryClient = useQueryClient();
   const { apiRequest } = useApiRequest();
   const userId = user?.id;
@@ -19,17 +18,15 @@ export function usePromptHistory() {
   } = useQuery({
     queryKey: ["/api/prompts", userId],
     queryFn: async () => {
-      if (!userId) return [];
-      const response = await fetch(`/api/prompts?userId=${userId}`, {
-        credentials: "include",
-      });
+      if (!isAuthenticated || !userId) return [];
+      const response = await apiRequest("GET", "/api/prompts");
       if (!response.ok) {
          const errorBody = await response.json();
          throw new Error(`Failed to fetch prompts: ${response.status} ${response.statusText} - ${errorBody.message}`);
       }
       return response.json();
     },
-    enabled: !!userId,
+    enabled: isAuthenticated && !!userId,
   });
 
   // Get favorite prompts
@@ -39,17 +36,15 @@ export function usePromptHistory() {
   } = useQuery({
     queryKey: ["/api/prompts/favorites", userId],
     queryFn: async () => {
-      if (!userId) return [];
-      const response = await fetch(`/api/prompts/favorites?userId=${userId}`, {
-        credentials: "include",
-      });
+      if (!isAuthenticated || !userId) return [];
+      const response = await apiRequest("GET", "/api/prompts/favorites");
        if (!response.ok) {
          const errorBody = await response.json();
          throw new Error(`Failed to fetch favorites: ${response.status} ${response.statusText} - ${errorBody.message}`);
       }
       return response.json();
     },
-    enabled: !!userId,
+    enabled: isAuthenticated && !!userId,
   });
 
   // Add a prompt to history

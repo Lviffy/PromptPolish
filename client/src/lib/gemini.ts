@@ -8,7 +8,15 @@ const apiKey = import.meta.env.VITE_GEMINI_API_KEY || "";
 const genAI = new GoogleGenerativeAI(apiKey);
 
 // Get the Gemini Pro model
-export const geminiModel = genAI.getGenerativeModel({ model: "gemini-pro" });
+export const geminiModel = genAI.getGenerativeModel({ 
+  model: "gemini-1.0-pro",
+  generationConfig: {
+    temperature: 0.7,
+    topK: 40,
+    topP: 0.95,
+    maxOutputTokens: 1024,
+  }
+});
 
 // Function to enhance a prompt
 export async function enhancePrompt(
@@ -63,5 +71,40 @@ export async function enhancePrompt(
   } catch (error) {
     console.error("Error enhancing prompt with Gemini:", error);
     throw new Error("Failed to enhance prompt");
+  }
+}
+
+// Function to get chat response
+export async function getChatResponse(
+  message: string,
+  conversationHistory: { role: 'user' | 'assistant', content: string }[]
+) {
+  try {
+    // Construct the chat context
+    const chatContext = conversationHistory
+      .map(msg => `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`)
+      .join('\n\n');
+
+    // Construct the system prompt
+    const systemPrompt = `
+      You are PromptPolish AI, an expert prompt enhancer and AI assistant. Your job is to help users create better prompts for any purpose.
+      
+      Recent conversation context:
+      ${chatContext}
+      
+      User's message: "${message}"
+      
+      Respond in a helpful, friendly manner. If the user is asking about how to improve a prompt, provide specific guidance on improving clarity, specificity, structure, and effectiveness. If they share a prompt for enhancement, analyze it and suggest improvements.
+      
+      Keep your responses concise but informative. Focus on practical advice and specific examples when relevant.
+    `;
+
+    // Call Gemini API
+    const result = await geminiModel.generateContent(systemPrompt);
+    const response = result.response;
+    return response.text();
+  } catch (error) {
+    console.error("Error getting chat response from Gemini:", error);
+    throw new Error("Failed to get chat response");
   }
 }
