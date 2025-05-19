@@ -2,9 +2,28 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { MessageSquarePlus, Loader2, History, Settings, LogOut, Menu, X } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { 
+  MessageSquarePlus, 
+  Loader2, 
+  History, 
+  Settings, 
+  LogOut, 
+  Menu, 
+  X, 
+  User,
+  ChevronDown
+} from "lucide-react";
 import { useChatHistory } from '@/hooks/use-chat-history';
 import { useAuth } from '@/lib/auth';
+import { 
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface ChatLayoutProps {
   children: React.ReactNode;
@@ -13,7 +32,7 @@ interface ChatLayoutProps {
 export function ChatLayout({ children }: ChatLayoutProps) {
   const navigate = useNavigate();
   const { conversations, createConversation, isLoading } = useChatHistory();
-  const { signOut } = useAuth();
+  const { user, userProfile, signOut } = useAuth();
   const [isCreatingChat, setIsCreatingChat] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
@@ -39,6 +58,21 @@ export function ChatLayout({ children }: ChatLayoutProps) {
     }
   };
 
+  // Get user's initials for avatar fallback
+  const getInitials = () => {
+    if (userProfile?.displayName) {
+      return userProfile.displayName
+        .split(' ')
+        .map(name => name[0])
+        .join('')
+        .toUpperCase()
+        .substring(0, 2);
+    } else if (userProfile?.username) {
+      return userProfile.username.substring(0, 2).toUpperCase();
+    }
+    return 'U';
+  };
+
   return (
     <div className="flex h-screen bg-background">
       {/* Mobile sidebar toggle */}
@@ -61,6 +95,51 @@ export function ChatLayout({ children }: ChatLayoutProps) {
         `}
       >
         <div className="flex flex-col h-full">
+          {/* User profile */}
+          <div className="p-4 border-b">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="w-full justify-start pl-2 pr-3 py-5 h-auto">
+                  <div className="flex items-center">
+                    <Avatar className="h-8 w-8 mr-2">
+                      <AvatarImage
+                        src={userProfile?.photoURL || undefined}
+                        alt={userProfile?.displayName || "User"}
+                      />
+                      <AvatarFallback>{getInitials()}</AvatarFallback>
+                    </Avatar>
+                    <div className="flex flex-col items-start text-left mr-1">
+                      <span className="text-sm font-medium truncate max-w-[120px]">
+                        {userProfile?.displayName || userProfile?.username || "User"}
+                      </span>
+                      <span className="text-xs text-muted-foreground truncate max-w-[120px]">
+                        {userProfile?.email}
+                      </span>
+                    </div>
+                    <ChevronDown className="h-4 w-4 ml-auto opacity-50" />
+                  </div>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-56">
+                <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => navigate('/settings')}>
+                  <User className="mr-2 h-4 w-4" />
+                  <span>Profile</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate('/settings')}>
+                  <Settings className="mr-2 h-4 w-4" />
+                  <span>Settings</span>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleSignOut}>
+                  <LogOut className="mr-2 h-4 w-4" />
+                  <span>Log out</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+          
           {/* New Chat button */}
           <div className="p-4">
             <Button 
@@ -135,14 +214,6 @@ export function ChatLayout({ children }: ChatLayoutProps) {
               >
                 <Settings className="mr-2 h-4 w-4" />
                 Settings
-              </Button>
-              <Button 
-                variant="ghost" 
-                className="w-full justify-start"
-                onClick={handleSignOut}
-              >
-                <LogOut className="mr-2 h-4 w-4" />
-                Sign Out
               </Button>
             </div>
           </div>

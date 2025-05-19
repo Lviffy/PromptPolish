@@ -6,13 +6,14 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle, Loader2 } from "lucide-react";
+import { AlertCircle, Loader2, ArrowLeft } from "lucide-react";
 
-export default function LoginPage() {
+export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [username, setUsername] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { loginWithEmail, signInWithGoogle, error, setError, isAuthenticated } = useAuth();
+  const { registerWithEmail, signInWithGoogle, error, setError, isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
   // Clear errors when component mounts
@@ -27,18 +28,37 @@ export default function LoginPage() {
     }
   }, [isAuthenticated, navigate]);
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!email || !password) {
-      setError("Email and password are required");
+    // Form validation
+    if (!email || !password || !username) {
+      setError("All fields are required");
+      return;
+    }
+
+    if (password.length < 6) {
+      setError("Password should be at least 6 characters");
+      return;
+    }
+
+    if (username.length < 3) {
+      setError("Username should be at least 3 characters");
+      return;
+    }
+
+    // Remove spaces and special characters from username
+    const sanitizedUsername = username.toLowerCase().replace(/[^a-z0-9]/g, "");
+    
+    if (sanitizedUsername !== username.toLowerCase()) {
+      setError("Username can only contain letters and numbers");
       return;
     }
     
     setIsSubmitting(true);
     
     try {
-      await loginWithEmail(email, password);
+      await registerWithEmail(email, password, sanitizedUsername);
       navigate("/");
     } catch (err) {
       // Error handling is done in the auth provider
@@ -63,9 +83,9 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold">Welcome back</CardTitle>
+          <CardTitle className="text-2xl font-bold">Create an account</CardTitle>
           <CardDescription>
-            Sign in to your account to continue
+            Enter your details below to create your account
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -76,7 +96,21 @@ export default function LoginPage() {
             </Alert>
           )}
 
-          <form onSubmit={handleLogin} className="space-y-4">
+          <form onSubmit={handleRegister} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="username">Username</Label>
+              <Input 
+                id="username"
+                type="text"
+                placeholder="johnsmith"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                disabled={isSubmitting}
+                autoComplete="username"
+                required
+              />
+            </div>
+            
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input 
@@ -92,21 +126,14 @@ export default function LoginPage() {
             </div>
             
             <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="password">Password</Label>
-                <Button variant="link" size="sm" className="px-0 text-xs font-normal" asChild>
-                  <a href="#" onClick={(e) => e.preventDefault()}>
-                    Forgot password?
-                  </a>
-                </Button>
-              </div>
+              <Label htmlFor="password">Password</Label>
               <Input 
                 id="password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 disabled={isSubmitting}
-                autoComplete="current-password"
+                autoComplete="new-password"
                 required
               />
             </div>
@@ -119,10 +146,10 @@ export default function LoginPage() {
               {isSubmitting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Signing in...
+                  Creating account...
                 </>
               ) : (
-                "Sign in"
+                "Create account"
               )}
             </Button>
           </form>
@@ -165,15 +192,27 @@ export default function LoginPage() {
             Continue with Google
           </Button>
         </CardContent>
-        <CardFooter>
-          <div className="text-center w-full text-sm">
-            Don't have an account?{" "}
-            <Button variant="link" size="sm" className="px-2 font-normal" asChild>
-              <Link to="/register">Sign up</Link>
+        <CardFooter className="flex flex-col space-y-4">
+          <div className="text-center text-sm text-muted-foreground">
+            By creating an account, you agree to our{" "}
+            <a href="#" className="underline underline-offset-4 hover:text-primary">
+              Terms of Service
+            </a>{" "}
+            and{" "}
+            <a href="#" className="underline underline-offset-4 hover:text-primary">
+              Privacy Policy
+            </a>
+          </div>
+          <div className="flex items-center justify-center">
+            <Button variant="link" size="sm" asChild>
+              <Link to="/login">
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back to Login
+              </Link>
             </Button>
           </div>
         </CardFooter>
       </Card>
     </div>
   );
-}
+} 
