@@ -10,11 +10,22 @@ import History from "@/pages/history";
 import Favorites from "@/pages/favorites";
 import Settings from "@/pages/settings";
 import ChatPage from "@/pages/chat";
-import { ThemeProvider } from '@/lib/theme';
+import LandingPage from "@/pages/landing";
+import { ThemeProvider } from '@/lib/theme.tsx';
 
 // Protected route wrapper
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
+  
+  if (isLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="text-center">
+          <p className="text-lg">Loading...</p>
+        </div>
+      </div>
+    );
+  }
   
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
@@ -29,6 +40,22 @@ function AppRoutes() {
       <Route path="/login" element={<LoginPage />} />
       <Route
         path="/"
+        element={
+          <ProtectedRoute>
+            <LandingPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/chat"
+        element={
+          <ProtectedRoute>
+            <ChatPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/chat/:id"
         element={
           <ProtectedRoute>
             <ChatPage />

@@ -1,5 +1,9 @@
 import { useAuth } from "@/lib/auth";
 import { auth } from "@/lib/firebase";
+import { mockApiResponse } from "@/lib/mock-api";
+
+// For development mode - use mock API responses
+const isDevelopment = true; // Set to true for development, false for production
 
 export function useApiRequest() {
   const { user } = useAuth();
@@ -10,6 +14,12 @@ export function useApiRequest() {
     data?: unknown | undefined,
     options?: { headers?: HeadersInit }
   ) => {
+    // Use mock API responses in development mode
+    if (isDevelopment) {
+      console.log(`Mock API request: ${method} ${url}`, data);
+      return mockApiResponse(method, url, data);
+    }
+    
     if (!auth.currentUser) {
       throw new Error('No authenticated user');
     }

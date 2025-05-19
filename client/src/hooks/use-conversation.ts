@@ -68,13 +68,13 @@ export function useConversation(conversationId?: string) {
           content: messageData.content,
           isUser: messageData.isUser
         });
-        
-        if (!response.ok) {
-          const errorBody = await response.json();
-          throw new Error(`Failed to add message: ${response.status} ${response.statusText}`);
-        }
-        
-        return await response.json();
+          
+          if (!response.ok) {
+            const errorBody = await response.json();
+            throw new Error(`Failed to add message: ${response.status} ${response.statusText}`);
+          }
+          
+          return await response.json();
       } catch (error) {
         console.error("Error adding message:", error);
         
@@ -98,10 +98,10 @@ export function useConversation(conversationId?: string) {
   useEffect(() => {
     if (conversationData?.messages && !isInitialized) {
       setMessages(conversationData.messages);
-      setIsInitialized(true);
+    setIsInitialized(true);
     }
   }, [conversationData, isInitialized]);
-
+  
   // Extract conversation data
   const conversation = conversationData ? {
     id: conversationData.id,

@@ -1,33 +1,21 @@
-import {
-  Toast,
-  ToastClose,
-  ToastDescription,
-  ToastProvider,
-  ToastTitle,
-  ToastViewport,
-} from "@/components/ui/toast"
-import { useToast } from "@/components/ui/use-toast"
+import React from "react";
+import { ToastNotification } from "./toast-notification";
+import { useToast } from "./use-toast";
 
 export function Toaster() {
-  const { toasts } = useToast()
+  const { toasts, dismiss } = useToast();
 
   return (
-    <ToastProvider>
-      {toasts.map(function ({ id, title, description, action, ...props }) {
-        return (
-          <Toast key={id} {...props}>
-            <div className="grid gap-1">
-              {title && <ToastTitle>{title}</ToastTitle>}
-              {description && (
-                <ToastDescription>{description}</ToastDescription>
-              )}
-            </div>
-            {action}
-            <ToastClose />
-          </Toast>
-        )
-      })}
-      <ToastViewport />
-    </ToastProvider>
-  )
+    <div className="fixed top-0 right-0 z-50 flex flex-col gap-2 p-4 max-h-screen overflow-hidden">
+      {toasts.map(({ id, title, description, variant, ...props }) => (
+        <ToastNotification
+          key={id}
+          title={title as string}
+          description={description as string}
+          variant={variant as "default" | "success" | "destructive" | "warning"}
+          onClose={() => dismiss(id)}
+        />
+      ))}
+    </div>
+  );
 }

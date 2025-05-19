@@ -1,6 +1,10 @@
 import { XCircle, CheckCircle } from "lucide-react";
 import { cva, type VariantProps } from "class-variance-authority";
-import { cn } from "@/lib/utils";
+
+// Simple utility function to replace cn
+function classNames(...classes: (string | undefined | boolean)[]) {
+  return classes.filter(Boolean).join(' ');
+}
 
 const toastVariants = cva(
   "group rounded-lg shadow-lg p-4 mb-3 flex items-start w-80 transform transition-transform duration-300",
@@ -44,7 +48,7 @@ export function ToastNotification({
   };
 
   return (
-    <div className={cn(toastVariants({ variant }))}>
+    <div className={toastVariants({ variant })}>
       <div className="mr-3">
         {getIcon()}
       </div>
