@@ -51,35 +51,40 @@ export function useConversation(conversationId?: string) {
     enabled: isAuthenticated && !!userId && !!conversationId,
   });
   
-  // Add a message to the conversation
+  // Add message to conversation
   const addMessageMutation = useMutation({
-    mutationFn: async (message: Omit<ChatMessage, "id" | "timestamp">) => {
-      if (!isAuthenticated || !userId) throw new Error("User not authenticated");
+    mutationFn: async (messageData: Omit<ChatMessage, "id" | "timestamp">) => {
+      if (!isAuthenticated || !userId) {
+        throw new Error("User not authenticated");
+      }
       
-      const messageWithTimestamp = {
-        ...message,
-        id: Date.now().toString(),
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      };
+      const conversationIdToUse = messageData.conversationId || conversationId;
+      if (!conversationIdToUse) {
+        throw new Error("Conversation ID is required");
+      }
       
       try {
-        if (conversationId) {
-          const response = await apiRequest("POST", `/api/conversations/${conversationId}/messages`, messageWithTimestamp);
-          
-          if (!response.ok) {
-            const errorBody = await response.json();
-            throw new Error(`Failed to add message: ${response.status} ${response.statusText}`);
-          }
-          
-          return await response.json();
-        } else {
-          // If no conversationId, return the message directly (for local handling)
-          return messageWithTimestamp;
+        const response = await apiRequest("POST", `/api/conversations/${conversationIdToUse}/messages`, {
+          content: messageData.content,
+          isUser: messageData.isUser
+        });
+        
+        if (!response.ok) {
+          const errorBody = await response.json();
+          throw new Error(`Failed to add message: ${response.status} ${response.statusText}`);
         }
+        
+        return await response.json();
       } catch (error) {
         console.error("Error adding message:", error);
-        // Return message for local handling when API is not available
-        return messageWithTimestamp;
+        
+        // Create local message when API is not available
+        return {
+          id: Date.now().toString(),
+          content: messageData.content,
+          isUser: messageData.isUser,
+          timestamp: new Date().toISOString(),
+        };
       }
     },
     onSuccess: () => {
@@ -89,46 +94,20 @@ export function useConversation(conversationId?: string) {
     },
   });
   
-  // Initialize messages from local storage if available
+  // Initialize messages when conversation data changes
   useEffect(() => {
-    if (!isAuthenticated || !userId || !conversationId || isInitialized) return;
-    
-    const localStorageKey = `chat_messages_${userId}_${conversationId}`;
-    const storedMessages = localStorage.getItem(localStorageKey);
-    
-    if (storedMessages) {
-      setMessages(JSON.parse(storedMessages));
-    } else if (!isLoading && !conversationData) {
-      // If no stored messages and no conversation data, initialize with welcome message
-      setMessages([{
-        id: "1",
-        content: "I am your AI assistant designed to help you craft better prompts for any purpose. How can I help you today?",
-        isUser: false,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        conversationId,
-      }]);
+    if (conversationData?.messages && !isInitialized) {
+      setMessages(conversationData.messages);
+      setIsInitialized(true);
     }
-    
-    setIsInitialized(true);
-  }, [userId, conversationId, isInitialized, isLoading, conversationData, isAuthenticated]);
-  
-  // Save messages to local storage
-  useEffect(() => {
-    if (!isAuthenticated || !userId || !conversationId || messages.length === 0) return;
-    
-    const localStorageKey = `chat_messages_${userId}_${conversationId}`;
-    localStorage.setItem(localStorageKey, JSON.stringify(messages));
-  }, [messages, userId, conversationId, isAuthenticated]);
-  
-  // Set messages from API data if available
-  useEffect(() => {
-    if (!conversationData?.messages || conversationData.messages.length === 0) return;
-    
-    setMessages(conversationData.messages.map((msg: any) => ({
-      ...msg,
-      timestamp: msg.timestamp || new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    })));
-  }, [conversationData]);
+  }, [conversationData, isInitialized]);
+
+  // Extract conversation data
+  const conversation = conversationData ? {
+    id: conversationData.id,
+    title: conversationData.title,
+    date: new Date(conversationData.date || conversationData.createdAt)
+  } : null;
   
   // Add a user message and get AI response
   const sendMessage = async (content: string) => {
@@ -155,8 +134,8 @@ export function useConversation(conversationId?: string) {
         content: msg.content
       }));
       
-      // Get AI response using Gemini
-      const response = await getChatResponse(content, conversationHistory);
+      // Get AI response using Gemini through our server API
+      const response = await getChatResponse(content, conversationHistory, apiRequest);
       
       // Add AI message
       const aiMessage: Omit<ChatMessage, "id" | "timestamp"> = {
@@ -186,28 +165,11 @@ export function useConversation(conversationId?: string) {
     }
   };
   
-  // Clear all messages and start a new conversation
-  const clearMessages = () => {
-    setMessages([{
-      id: "1",
-      content: "I am your AI assistant designed to help you craft better prompts for any purpose. How can I help you today?",
-      isUser: false,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      conversationId,
-    }]);
-    
-    if (userId && conversationId) {
-      const localStorageKey = `chat_messages_${userId}_${conversationId}`;
-      localStorage.removeItem(localStorageKey);
-    }
-  };
-  
   return {
     messages,
+    conversation,
     isLoading,
     error,
     sendMessage,
-    clearMessages,
-    isAuthenticated,
   };
 }

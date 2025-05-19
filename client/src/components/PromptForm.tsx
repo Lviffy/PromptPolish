@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { PencilLine, Code, ListOrdered, MessageSquare, Briefcase, LightbulbIcon, MessageCircle, Laptop, Bot } from "lucide-react";
 import { usePromptHistory } from "@/hooks/use-prompt-history";
 import { useApiRequest } from "@/hooks/useApiRequest";
+import { enhancePrompt } from "@/lib/gemini";
 
 type EnhancementResponse = {
   enhancedPrompt: string;
@@ -29,8 +30,8 @@ export default function PromptForm() {
   
   const enhanceMutation = useMutation({
     mutationFn: async (data: EnhancePromptPayload) => {
-      const response = await apiRequest("POST", "/api/enhance", data);
-      return response.json() as Promise<EnhancementResponse>;
+      // Use the enhanced Gemini integration
+      return enhancePrompt(data.prompt, data.promptType, data.enhancementFocus, apiRequest);
     },
     onSuccess: (data) => {
       toast({

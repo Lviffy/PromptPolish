@@ -24,7 +24,7 @@ declare global {
 // Initialize Gemini API
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 const model = genAI.getGenerativeModel({ 
-  model: "gemini-2.0-flash",
+  model: "gemini-1.5-flash", // Using gemini-1.5-flash as a fallback since 2.0 may not be widely available
   generationConfig: {
     temperature: 0.7,
     topK: 40,
@@ -32,6 +32,41 @@ const model = genAI.getGenerativeModel({
     maxOutputTokens: 1024,
   }
 });
+
+// Add a new chat endpoint
+const handleChatRequest = async (
+  message: string,
+  conversationHistory: { role: string, content: string }[]
+) => {
+  try {
+    // Construct the chat context
+    const chatContext = conversationHistory
+      .map(msg => `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`)
+      .join('\n\n');
+
+    // Construct the system prompt
+    const systemPrompt = `
+      You are PromptPolish AI, an expert prompt enhancer and AI assistant. Your job is to help users create better prompts for any purpose.
+      
+      Recent conversation context:
+      ${chatContext}
+      
+      User's message: "${message}"
+      
+      Respond in a helpful, friendly manner. If the user is asking about how to improve a prompt, provide specific guidance on improving clarity, specificity, structure, and effectiveness. If they share a prompt for enhancement, analyze it and suggest improvements.
+      
+      Keep your responses concise but informative. Focus on practical advice and specific examples when relevant.
+    `;
+
+    // Call Gemini API
+    const result = await model.generateContent(systemPrompt);
+    const response = result.response;
+    return response.text();
+  } catch (error) {
+    console.error("Error getting chat response from Gemini:", error);
+    throw new Error("Failed to get chat response");
+  }
+};
 
 // Middleware to extract Firebase user ID from Authorization header
 const extractFirebaseUserId = (req: express.Request, res: express.Response, next: express.NextFunction) => {
@@ -452,6 +487,30 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
     } catch (error) {
       console.error("Error creating message:", error);
       res.status(500).json({ message: "Error creating message" });
+    }
+  });
+
+  // Add a new AI chat endpoint
+  app.post("/api/chat", extractFirebaseUserId, async (req, res) => {
+    try {
+      const { message, conversationHistory } = req.body;
+      const userId = req.user?.id;
+      
+      if (!userId) {
+        return res.status(401).json({ message: "User not authenticated" });
+      }
+      
+      if (!message) {
+        return res.status(400).json({ message: "Message is required" });
+      }
+      
+      // Get AI response
+      const aiResponse = await handleChatRequest(message, conversationHistory || []);
+      
+      res.json({ response: aiResponse });
+    } catch (error) {
+      console.error("Error getting AI chat response:", error);
+      res.status(500).json({ message: "Error getting AI response" });
     }
   });
 
