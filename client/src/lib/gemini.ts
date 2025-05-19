@@ -8,14 +8,7 @@ const apiKey = import.meta.env.VITE_GEMINI_API_KEY || "";
 const genAI = new GoogleGenerativeAI(apiKey);
 
 // Get the Gemini Pro model
-export const geminiModel = genAI.getGenerativeModel({ 
-  model: "gemini-2.0-flash",
-  generationConfig: {
-    temperature: 0.7,
-    topP: 0.9,
-    topK: 40,
-  }
-});
+export const geminiModel = genAI.getGenerativeModel({ model: "gemini-pro" });
 
 // Function to enhance a prompt
 export async function enhancePrompt(

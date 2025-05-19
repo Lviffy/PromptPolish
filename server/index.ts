@@ -1,5 +1,8 @@
+<<<<<<< HEAD
 import 'dotenv/config';
 console.log('ENV:', process.env);
+=======
+>>>>>>> 5699f726c3337938823c07faab230685f6716714
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
