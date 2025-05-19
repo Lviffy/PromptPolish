@@ -206,11 +206,6 @@ class PostgresStorage implements IStorage {
 class MemStorage implements IStorage {
   private users: Map<number, User>;
   private promptsStore: Map<number, Prompt>;
-<<<<<<< HEAD
-=======
-  private conversationsMap: Map<string, Conversation>;
-  private messagesMap: Map<string, Message>;
->>>>>>> 5699f726c3337938823c07faab230685f6716714
   private userIdCounter: number;
   private promptIdCounter: number;
 
