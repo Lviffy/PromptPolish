@@ -13,9 +13,21 @@ import {
   signInWithPopup,
   signInWithRedirect,
   getRedirectResult,
-  AuthError
+  AuthError,
+  browserLocalPersistence,
+  setPersistence,
+  sendPasswordResetEmail,
+  sendEmailVerification,
+  verifyBeforeUpdateEmail
 } from 'firebase/auth';
-import { getFirestore, doc, setDoc, getDoc, Firestore } from 'firebase/firestore';
+import { 
+  getFirestore, 
+  doc, 
+  setDoc, 
+  getDoc, 
+  Firestore, 
+  enableIndexedDbPersistence 
+} from 'firebase/firestore';
 import { getAnalytics } from 'firebase/analytics';
 
 // Import the firebase config from root firebase.ts
@@ -23,6 +35,32 @@ import { app, auth, analytics } from '../firebase';
 
 // Initialize Firestore
 const db = getFirestore(app);
+
+// Enable offline persistence for Firestore
+try {
+  enableIndexedDbPersistence(db)
+    .then(() => {
+      console.log('Firestore persistence enabled');
+    })
+    .catch((err) => {
+      console.warn('Firestore persistence couldn\'t be enabled:', err.code);
+    });
+} catch (err) {
+  console.warn('Error enabling Firestore persistence:', err);
+}
+
+// Set authentication persistence to LOCAL
+try {
+  setPersistence(auth, browserLocalPersistence)
+    .then(() => {
+      console.log('Auth persistence set to LOCAL');
+    })
+    .catch(err => {
+      console.warn('Error setting auth persistence:', err);
+    });
+} catch (err) {
+  console.warn('Error configuring auth persistence:', err);
+}
 
 // Configure Google Auth Provider
 export const googleProvider = new GoogleAuthProvider();
@@ -42,7 +80,11 @@ export const signInWithGoogle = async (): Promise<User> => {
     const user = result.user;
     
     // Create/update user profile
-    await createUserProfileIfNeeded(user);
+    try {
+      await createUserProfileIfNeeded(user);
+    } catch (profileError) {
+      console.warn('Failed to create user profile, but authentication succeeded:', profileError);
+    }
     
     return user;
   } catch (error: any) {
@@ -75,7 +117,11 @@ export const handleGoogleRedirect = async (): Promise<User | null> => {
       const user = result.user;
       
       // Create/update user profile
-      await createUserProfileIfNeeded(user);
+      try {
+        await createUserProfileIfNeeded(user);
+      } catch (profileError) {
+        console.warn('Failed to create user profile after redirect, but authentication succeeded:', profileError);
+      }
       
       return user;
     }
@@ -91,22 +137,33 @@ async function createUserProfileIfNeeded(user: User) {
   try {
     // Check if user profile exists, if not create one with username from email
     const userRef = doc(db, 'users', user.uid);
-    const userSnap = await getDoc(userRef);
     
-    if (!userSnap.exists()) {
-      const username = user.displayName || user.email?.split('@')[0] || 'User';
+    try {
+      const userSnap = await getDoc(userRef);
       
-      await setDoc(userRef, {
-        uid: user.uid,
-        email: user.email,
-        displayName: user.displayName,
-        username: username,
-        photoURL: user.photoURL,
-        createdAt: new Date().toISOString()
-      });
+      if (!userSnap.exists()) {
+        const username = user.displayName || user.email?.split('@')[0] || 'User';
+        
+        await setDoc(userRef, {
+          uid: user.uid,
+          email: user.email,
+          displayName: user.displayName,
+          username: username,
+          photoURL: user.photoURL,
+          createdAt: new Date().toISOString()
+        });
+      }
+    } catch (error) {
+      // Handle Firestore permissions error specifically
+      if (error instanceof Error && error.message.includes('permission-denied')) {
+        console.warn('Permission denied when accessing Firestore. User is authenticated but may have limited functionality.');
+      } else {
+        throw error;
+      }
     }
   } catch (error) {
     console.error('Error creating user profile:', error);
+    throw error;
   }
 }
 
@@ -123,15 +180,27 @@ export const registerWithEmail = async (
     // Update profile with username
     await updateProfile(user, { displayName: username });
     
-    // Create user document in Firestore
-    const userRef = doc(db, 'users', user.uid);
-    await setDoc(userRef, {
-      uid: user.uid,
-      email: user.email,
-      username,
-      displayName: username,
-      createdAt: new Date().toISOString()
-    });
+    // Send email verification
+    try {
+      await sendEmailVerification(user);
+    } catch (verificationError) {
+      console.warn('Failed to send verification email, but user was created:', verificationError);
+    }
+    
+    // Create user document in Firestore - wrapped in try/catch to handle permissions errors
+    try {
+      const userRef = doc(db, 'users', user.uid);
+      await setDoc(userRef, {
+        uid: user.uid,
+        email: user.email,
+        username,
+        displayName: username,
+        emailVerified: false,
+        createdAt: new Date().toISOString()
+      });
+    } catch (firestoreError) {
+      console.warn('Failed to create Firestore profile, but user was created:', firestoreError);
+    }
     
     return user;
   } catch (error) {
@@ -162,6 +231,36 @@ export const signOutUser = async (): Promise<void> => {
   }
 };
 
+// Add password reset functionality
+export const resetPassword = async (email: string): Promise<void> => {
+  try {
+    await sendPasswordResetEmail(auth, email);
+  } catch (error) {
+    console.error('Error sending password reset email:', error);
+    throw error;
+  }
+};
+
+// Add email verification functionality
+export const verifyEmail = async (user: User): Promise<void> => {
+  try {
+    await sendEmailVerification(user);
+  } catch (error) {
+    console.error('Error sending verification email:', error);
+    throw error;
+  }
+};
+
+// Allow users to update their email with verification
+export const updateUserEmail = async (user: User, newEmail: string): Promise<void> => {
+  try {
+    await verifyBeforeUpdateEmail(user, newEmail);
+  } catch (error) {
+    console.error('Error updating user email:', error);
+    throw error;
+  }
+};
+
 // Helper function to handle Firebase errors
 export function handleFirebaseError(error: any): string {
   const errorCode = error?.code as string;
@@ -174,6 +273,12 @@ export function handleFirebaseError(error: any): string {
     'auth/popup-closed-by-user': 'Sign-in popup was closed before completing',
     'auth/operation-not-allowed': 'This sign-in method is not enabled',
     'auth/network-request-failed': 'Network error, please check your connection',
+    'auth/popup-blocked': 'Sign-in popup was blocked by your browser',
+    'auth/requires-recent-login': 'This operation requires recent authentication. Please log in again.',
+    'auth/email-already-exists': 'The email address is already in use by another account',
+    'auth/expired-action-code': 'The action code has expired. Please request a new one',
+    'auth/invalid-action-code': 'The action code is invalid. This can happen if it has already been used',
+    'permission-denied': 'You don\'t have permission to access this data',
   };
 
   return errorCode && errorMessage[errorCode] ? errorMessage[errorCode] : error?.message || 'An unexpected error occurred';

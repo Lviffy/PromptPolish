@@ -7,6 +7,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/lib/auth";
 import { z } from "zod";
 import GoogleLoginButton from "./GoogleLoginButton";
+import ForgotPasswordForm from "./ForgotPasswordForm";
 
 // Validation schemas
 const loginSchema = z.object({
@@ -43,10 +44,12 @@ export default function LoginForm({ onClose, onNavigationStart }: LoginFormProps
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
 
   const handleFormSwitch = () => {
     if (isSubmitting) return;
     setIsLogin(!isLogin);
+    setShowForgotPassword(false);
     setErrors({});
     // Clear form fields when switching
     setLoginEmail("");
@@ -140,7 +143,17 @@ export default function LoginForm({ onClose, onNavigationStart }: LoginFormProps
       });
       setIsSubmitting(false);
     }
-  };  return (
+  }; 
+
+  if (showForgotPassword) {
+    return (
+      <ForgotPasswordForm 
+        onBackToLogin={() => setShowForgotPassword(false)} 
+      />
+    );
+  }
+
+  return (
     <Card className="max-w-md w-full mx-auto shadow-md border border-muted/40">
       <CardContent className="p-8">
         <h2 className="text-2xl font-bold text-center mb-8">
@@ -166,7 +179,19 @@ export default function LoginForm({ onClose, onNavigationStart }: LoginFormProps
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="password" className="text-base mb-1">Password</Label>                <Input
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="password" className="text-base mb-1">Password</Label>
+                  <Button 
+                    type="button" 
+                    variant="link" 
+                    size="sm" 
+                    onClick={() => setShowForgotPassword(true)}
+                    className="p-0 h-auto text-sm font-medium"
+                  >
+                    Forgot password?
+                  </Button>
+                </div>
+                <Input
                   id="password"
                   type="password"
                   value={loginPassword}

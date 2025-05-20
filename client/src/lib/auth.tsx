@@ -13,7 +13,10 @@ import {
   registerWithEmail as firebaseRegisterWithEmail,
   signOutUser as firebaseSignOut,
   handleFirebaseError,
-  db
+  db,
+  resetPassword as firebaseResetPassword,
+  verifyEmail as firebaseVerifyEmail,
+  updateUserEmail as firebaseUpdateUserEmail
 } from './firebase';
 import { doc, getDoc, Firestore } from 'firebase/firestore';
 
@@ -40,6 +43,9 @@ interface AuthContextType {
   loginWithEmail: (email: string, password: string) => Promise<void>;
   registerWithEmail: (email: string, password: string, username: string) => Promise<void>;
   signOut: () => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
+  sendVerificationEmail: () => Promise<void>;
+  updateEmail: (newEmail: string) => Promise<void>;
   error: string | null;
   setError: (error: string | null) => void;
 }
@@ -64,7 +70,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       
       // Create proper document reference
-      const userRef = doc(db as Firestore, 'users', uid);
+      const userRef = doc(firebaseDB, 'users', uid);
       
       // Get document snapshot
       const userSnap = await getDoc(userRef);
@@ -76,6 +82,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return null;
     } catch (error) {
       console.error('Error fetching user profile:', error);
+      // Create a basic profile from auth data when Firestore fails
+      if (user) {
+        return {
+          uid: user.uid,
+          email: user.email,
+          username: user.displayName?.split(' ')[0].toLowerCase() || user.email?.split('@')[0] || 'user',
+          displayName: user.displayName,
+          photoURL: user.photoURL,
+          emailVerified: user.emailVerified,
+        };
+      }
       return null;
     }
   };
@@ -87,12 +104,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const redirectUser = await handleGoogleRedirect();
         if (redirectUser) {
           setUser(redirectUser);
-          const profile = await getUserProfile(redirectUser.uid);
-          if (profile) {
+          try {
+            const profile = await getUserProfile(redirectUser.uid);
+            if (profile) {
+              setUserProfile({
+                ...profile,
+                emailVerified: redirectUser.emailVerified,
+              } as UserProfile);
+            }
+          } catch (profileError) {
+            console.warn('Failed to get user profile after redirect, using basic profile', profileError);
+            // Create a basic profile from auth data
             setUserProfile({
-              ...profile,
+              uid: redirectUser.uid,
+              email: redirectUser.email,
+              username: redirectUser.displayName?.split(' ')[0].toLowerCase() || redirectUser.email?.split('@')[0] || 'user',
+              displayName: redirectUser.displayName,
+              photoURL: redirectUser.photoURL,
               emailVerified: redirectUser.emailVerified,
-            } as UserProfile);
+            });
           }
         }
       } catch (error: any) {
@@ -115,7 +145,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       const unsubscribe = onAuthStateChanged(
-        auth as Auth, 
+        firebaseAuth, 
         async (authUser: User | null) => {
           setIsLoading(true);
           
@@ -178,21 +208,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // Sign in with Google - starts the redirect flow
+  // Sign in with Google - with improved popup and redirect handling
   const signInWithGoogle = async () => {
     try {
       setIsLoading(true);
       setError(null);
-      // This will redirect to Google sign-in page
+      
       await firebaseSignInWithGoogle();
-      // No user is returned immediately as this is a redirect flow
+      // Success handled by auth state change listener or redirect handler
+      
     } catch (error: any) {
-      console.error('Google sign in error:', error);
-      setError(handleFirebaseError(error));
-      setIsLoading(false);
-      throw error;
+      // Don't set isLoading to false here for redirect flow
+      if (error.code !== 'auth/cancelled-popup-request' && 
+          error.code !== 'auth/popup-blocked' &&
+          error.code !== 'auth/popup-closed-by-user') {
+        console.error('Google sign in error:', error);
+        setError(handleFirebaseError(error));
+        setIsLoading(false);
+      }
     }
-    // Note: Don't set isLoading to false here since the page will redirect
   };
 
   // Login with email/password
@@ -202,6 +236,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setError(null);
       const user = await firebaseLoginWithEmail(email, password);
       setUser(user);
+      
+      // Create basic profile if we can't access Firestore
+      setUserProfile({
+        uid: user.uid,
+        email: user.email,
+        username: user.displayName?.split(' ')[0].toLowerCase() || user.email?.split('@')[0] || 'user',
+        displayName: user.displayName,
+        photoURL: user.photoURL,
+        emailVerified: user.emailVerified,
+      });
+      
     } catch (error: any) {
       console.error('Email login error:', error);
       setError(handleFirebaseError(error));
@@ -218,6 +263,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setError(null);
       const user = await firebaseRegisterWithEmail(email, password, username);
       setUser(user);
+      
+      // Create basic profile if we can't access Firestore
+      setUserProfile({
+        uid: user.uid,
+        email: user.email,
+        username: username,
+        displayName: username,
+        photoURL: user.photoURL,
+        emailVerified: user.emailVerified,
+      });
+      
     } catch (error: any) {
       console.error('Registration error:', error);
       setError(handleFirebaseError(error));
@@ -243,6 +299,57 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Send password reset email
+  const resetPassword = async (email: string) => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      await firebaseResetPassword(email);
+    } catch (error: any) {
+      console.error('Password reset error:', error);
+      setError(handleFirebaseError(error));
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Send email verification
+  const sendVerificationEmail = async () => {
+    try {
+      if (!user) {
+        throw new Error('No authenticated user');
+      }
+      setIsLoading(true);
+      setError(null);
+      await firebaseVerifyEmail(user);
+    } catch (error: any) {
+      console.error('Email verification error:', error);
+      setError(handleFirebaseError(error));
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Update user email
+  const updateEmail = async (newEmail: string) => {
+    try {
+      if (!user) {
+        throw new Error('No authenticated user');
+      }
+      setIsLoading(true);
+      setError(null);
+      await firebaseUpdateUserEmail(user, newEmail);
+    } catch (error: any) {
+      console.error('Email update error:', error);
+      setError(handleFirebaseError(error));
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const value = {
     user,
     userProfile,
@@ -252,11 +359,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     loginWithEmail,
     registerWithEmail,
     signOut,
+    resetPassword,
+    sendVerificationEmail,
+    updateEmail,
     error,
-    setError
+    setError,
   };
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+    </AuthContext.Provider>
+  );
 }
 
 // Custom hook to use Auth context
