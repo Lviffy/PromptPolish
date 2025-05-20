@@ -10,94 +10,56 @@ import {
   Auth,
   User,
   UserCredential,
-  PopupRedirectResolver,
-  AuthProvider,
+  signInWithPopup,
   AuthError
 } from 'firebase/auth';
 import { getFirestore, doc, setDoc, getDoc, Firestore } from 'firebase/firestore';
 import { getAnalytics, isSupported, Analytics } from 'firebase/analytics';
 
-// For development mode - use mock Firebase implementations
-const isDevelopment = true; // Set to true for development, false for production
+// Import the firebase config from root firebase.ts
+import { app as firebaseApp, auth as firebaseAuth, analytics as firebaseAnalytics } from '../firebase';
 
-// Only import Firebase if not in development mode
-let auth: Auth;
-let db: Firestore;
-let analytics: Analytics | null;
-let app;
+// Determine if we're in development mode without valid Firebase config
+const isDev = import.meta.env.DEV && 
+  (!import.meta.env.VITE_FIREBASE_API_KEY || !import.meta.env.VITE_FIREBASE_AUTH_DOMAIN);
 
-if (!isDevelopment) {
-  // Only import and initialize Firebase in production
-  const { initializeApp } = require('firebase/app');
-  const { getAuth } = require('firebase/auth');
-  const { getFirestore } = require('firebase/firestore');
-  const { getAnalytics, isSupported } = require('firebase/analytics');
+// Export the Firebase services
+export const auth = firebaseAuth;
 
-  const firebaseConfig = {
-    apiKey: "AIzaSyDummyKeyForTesting123456789",
-    authDomain: "prompt-polish.firebaseapp.com",
-    projectId: "prompt-polish",
-    storageBucket: "prompt-polish.appspot.com",
-    messagingSenderId: "123456789012",
-    appId: "1:123456789012:web:abcdef1234567890",
-    measurementId: "G-ABCDEF1234"
-  };
+// Define db variable
+let db;
 
-  // Initialize Firebase
-  app = initializeApp(firebaseConfig);
-  auth = getAuth(app);
-  db = getFirestore(app);
-  
-  // Initialize analytics conditionally
-  isSupported().then(supported => {
-    if (supported) {
-      analytics = getAnalytics(app);
-    }
-  }).catch(err => {
-    console.warn('Analytics not supported:', err);
-  });
-} else {
-  // Mock implementations for development
-  console.log('Using mock Firebase implementation for development');
-  
-  // Mock auth
-  auth = {
-    currentUser: null,
-    onAuthStateChanged: (callback) => {
-      callback(null);
-      return () => {}; // Unsubscribe function
-    },
-  };
-  
-  // Mock db
+// Create a mock Firestore or use the real one
+if (isDev) {
+  // Create a mock Firestore implementation
   db = {
     collection: () => ({
       doc: () => ({
         get: async () => ({
-          exists: false,
+          exists: () => false,
           data: () => ({}),
         }),
         set: async () => {},
         update: async () => {},
-        delete: async () => {},
-      }),
-      add: async () => {},
-      where: () => ({
-        get: async () => ({
-          docs: [],
-        }),
       }),
     }),
+    doc: (collection, id) => ({
+      get: async () => ({
+        exists: () => false,
+        data: () => ({}),
+      }),
+      set: async () => {},
+    }),
   };
-  
-  // Mock analytics
-  analytics = {
-    logEvent: () => {},
-  };
+} else {
+  // Use the real Firestore DB
+  db = getFirestore(firebaseApp);
 }
 
-// Export the Firebase services
-export { auth, db, analytics };
+// Export the db
+export { db };
+
+export const analytics = firebaseAnalytics;
 
 // Configure Google Auth Provider
 export const googleProvider = new GoogleAuthProvider();
@@ -107,8 +69,20 @@ googleProvider.setCustomParameters({
 
 // Auth helper functions
 export const signInWithGoogle = async (): Promise<User> => {
+  if (isDev) {
+    console.log('Using mock signInWithGoogle implementation');
+    // Return a mock user
+    return {
+      uid: 'mock-user-123',
+      email: 'mockuser@example.com',
+      displayName: 'Mock User',
+      photoURL: 'https://via.placeholder.com/150',
+      emailVerified: true,
+    } as User;
+  }
+  
   try {
-    const result = await auth.signInWithPopup(googleProvider);
+    const result = await signInWithPopup(auth, googleProvider);
     const user = result.user;
     
     // Check if user profile exists, if not create one with username from email
@@ -140,6 +114,18 @@ export const registerWithEmail = async (
   password: string, 
   username: string
 ): Promise<User> => {
+  if (isDev) {
+    console.log('Using mock registerWithEmail implementation');
+    // Return a mock user
+    return {
+      uid: 'mock-user-123',
+      email,
+      displayName: username,
+      photoURL: null,
+      emailVerified: false,
+    } as User;
+  }
+  
   try {
     // Create user with email and password
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
@@ -169,6 +155,18 @@ export const loginWithEmail = async (
   email: string, 
   password: string
 ): Promise<User> => {
+  if (isDev) {
+    console.log('Using mock loginWithEmail implementation');
+    // Return a mock user
+    return {
+      uid: 'mock-user-123',
+      email,
+      displayName: 'Mock User',
+      photoURL: 'https://via.placeholder.com/150',
+      emailVerified: true,
+    } as User;
+  }
+  
   try {
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
     return userCredential.user;
@@ -179,6 +177,11 @@ export const loginWithEmail = async (
 };
 
 export const signOutUser = async (): Promise<void> => {
+  if (isDev) {
+    console.log('Using mock signOut implementation');
+    return;
+  }
+  
   try {
     await firebaseSignOut(auth);
   } catch (error) {

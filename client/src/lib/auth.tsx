@@ -41,7 +41,9 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | null>(null);
 
 // Development flag - use this to bypass real Firebase auth during development
-const useMockAuth = false; // Set to true for mock auth during development
+const useMockAuth = 
+  import.meta.env.DEV && 
+  (!import.meta.env.VITE_FIREBASE_API_KEY || !import.meta.env.VITE_FIREBASE_AUTH_DOMAIN);
 
 // Auth Provider component
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -96,6 +98,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   
     // Real Firebase auth listener
     try {
+      // Make sure we have auth before setting up listeners
+      if (!auth) {
+        console.error('Firebase Auth is not available');
+        setError('Authentication service is not available');
+        setIsLoading(false);
+        return () => {};
+      }
+
       const unsubscribe = onAuthStateChanged(
         auth, 
         async (authUser: User | null) => {
@@ -104,16 +114,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (authUser) {
             setUser(authUser);
             
-            // Get additional user profile from Firestore
-            const profile = await getUserProfile(authUser.uid);
-            
-            if (profile) {
-              setUserProfile({
-                ...profile,
-                emailVerified: authUser.emailVerified,
-              } as UserProfile);
-            } else {
-              // If no profile exists yet, create a basic one from auth data
+            try {
+              // Get additional user profile from Firestore
+              const profile = await getUserProfile(authUser.uid);
+              
+              if (profile) {
+                setUserProfile({
+                  ...profile,
+                  emailVerified: authUser.emailVerified,
+                } as UserProfile);
+              } else {
+                // If no profile exists yet, create a basic one from auth data
+                setUserProfile({
+                  uid: authUser.uid,
+                  email: authUser.email,
+                  username: authUser.displayName?.split(' ')[0].toLowerCase() || authUser.email?.split('@')[0] || 'user',
+                  displayName: authUser.displayName,
+                  photoURL: authUser.photoURL,
+                  emailVerified: authUser.emailVerified,
+                });
+              }
+            } catch (error) {
+              console.error('Error getting user profile:', error);
+              // Create a basic profile even if Firestore fails
               setUserProfile({
                 uid: authUser.uid,
                 email: authUser.email,
