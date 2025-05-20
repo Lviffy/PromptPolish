@@ -111,40 +111,75 @@ export function useConversation(conversationId?: string) {
   
   // Add a user message and get AI response
   const sendMessage = async (content: string) => {
+    // Remove authentication check to allow chat without login
+    /*
     if (!isAuthenticated || !userId) {
       throw new Error("Please log in to send messages");
     }
+    */
     
     if (!content.trim()) return;
+    
+    // Create a local conversation ID if none exists
+    const localConversationId = conversationId || `local-${Date.now()}`;
     
     // Add user message
     const userMessage: Omit<ChatMessage, "id" | "timestamp"> = {
       content,
       isUser: true,
-      conversationId,
+      conversationId: localConversationId,
     };
     
-    const addedUserMessage = await addMessageMutation.mutateAsync(userMessage);
-    setMessages(prev => [...prev, addedUserMessage]);
-    
     try {
+      // Use local message handling instead of API if not authenticated
+      let addedUserMessage: ChatMessage;
+      if (!isAuthenticated || !userId) {
+        addedUserMessage = {
+          id: `local-${Date.now()}`,
+          content,
+          isUser: true,
+          timestamp: new Date().toISOString(),
+          conversationId: localConversationId
+        };
+      } else {
+        addedUserMessage = await addMessageMutation.mutateAsync(userMessage);
+      }
+      
+      setMessages(prev => [...prev, addedUserMessage]);
+      
       // Convert messages to the format expected by getChatResponse
-      const conversationHistory = messages.map(msg => ({
+      const currentMessages = [...messages, addedUserMessage];
+      const conversationHistory = currentMessages.map(msg => ({
         role: msg.isUser ? 'user' : 'assistant',
         content: msg.content
       }));
       
+      console.log("Getting AI response...");
       // Get AI response using Gemini through our server API
       const response = await getChatResponse(content, conversationHistory, apiRequest);
+      console.log("AI response received:", response.substring(0, 50) + "...");
       
       // Add AI message
       const aiMessage: Omit<ChatMessage, "id" | "timestamp"> = {
         content: response,
         isUser: false,
-        conversationId,
+        conversationId: localConversationId,
       };
       
-      const addedAiMessage = await addMessageMutation.mutateAsync(aiMessage);
+      // Use local message handling instead of API if not authenticated
+      let addedAiMessage: ChatMessage;
+      if (!isAuthenticated || !userId) {
+        addedAiMessage = {
+          id: `local-${Date.now() + 1}`,
+          content: response,
+          isUser: false,
+          timestamp: new Date().toISOString(),
+          conversationId: localConversationId
+        };
+      } else {
+        addedAiMessage = await addMessageMutation.mutateAsync(aiMessage);
+      }
+      
       setMessages(prev => [...prev, addedAiMessage]);
       
       return addedAiMessage;
@@ -153,9 +188,10 @@ export function useConversation(conversationId?: string) {
       
       // Add error message if AI response fails
       const errorMessage: Omit<ChatMessage, "id" | "timestamp"> = {
-        content: "Sorry, I encountered an error while processing your request. Please try again.",
+        content: "Sorry, I encountered an error while processing your request. Please try again. Error: " + 
+                (error instanceof Error ? error.message : "Unknown error"),
         isUser: false,
-        conversationId,
+        conversationId: localConversationId,
       };
       
       const addedErrorMessage = await addMessageMutation.mutateAsync(errorMessage);

@@ -3,7 +3,7 @@ import { auth } from "@/lib/firebase";
 import { mockApiResponse } from "@/lib/mock-api";
 
 // For development mode - use mock API responses
-const isDevelopment = true; // Set to true for development, false for production
+const isDevelopment = false; // Set to true for development, false for production
 
 export function useApiRequest() {
   const { user } = useAuth();

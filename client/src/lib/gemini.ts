@@ -7,9 +7,9 @@ const apiKey = import.meta.env.VITE_GEMINI_API_KEY || "";
 // Initialize the Gemini API
 const genAI = new GoogleGenerativeAI(apiKey);
 
-// Get the Gemini Pro model
+// Get the Gemini model
 export const geminiModel = genAI.getGenerativeModel({ 
-  model: "gemini-1.0-pro",
+  model: "gemini-2.0-flash",
   generationConfig: {
     temperature: 0.7,
     topK: 40,
@@ -55,13 +55,25 @@ export async function getChatResponse(
   apiRequest: any
 ) {
   try {
+    console.log("Sending chat request to server API");
+    console.log("Message:", message);
+    console.log("History length:", conversationHistory.length);
+
     // Call the server API instead of Gemini API directly
-    const response = await apiRequest("POST", "/api/chat", {
-      message,
-      conversationHistory
+    const response = await fetch("/api/chat", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        message,
+        conversationHistory
+      }),
     });
 
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Chat API error:", response.status, response.statusText, errorText);
       throw new Error(`API error: ${response.status} ${response.statusText}`);
     }
 
@@ -69,6 +81,6 @@ export async function getChatResponse(
     return result.response;
   } catch (error) {
     console.error("Error getting chat response:", error);
-    throw new Error("Failed to get chat response");
+    throw new Error("Failed to get chat response: " + (error instanceof Error ? error.message : "Unknown error"));
   }
 }

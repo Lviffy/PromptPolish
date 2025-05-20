@@ -10,6 +10,21 @@ import http from 'http';
 // Load environment variables
 config();
 
+// Log environment variables for debugging
+console.log("Environment variables loaded:");
+console.log("NODE_ENV:", process.env.NODE_ENV);
+
+// Handle Gemini API key
+const geminiApiKey = process.env.GEMINI_API_KEY;
+if (geminiApiKey) {
+  const maskedKey = geminiApiKey.substring(0, 4) + "..." + "*".repeat(Math.max(0, geminiApiKey.length - 8)) + 
+    (geminiApiKey.length > 8 ? geminiApiKey.substring(geminiApiKey.length - 4) : "");
+  console.log("GEMINI_API_KEY: Found (format: " + maskedKey + ", length: " + geminiApiKey.length + ")");
+} else {
+  console.log("GEMINI_API_KEY: Not found - Gemini API will run in mock mode");
+  console.log("To use Gemini 2.0 Flash, please set a valid API key in your environment variables");
+}
+
 // Initialize Firebase Admin
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount as any)
@@ -22,14 +37,18 @@ app.use(cors({
   origin: '*', // Allow all origins in development
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-  credentials: true
+  credentials: true,
+  preflightContinue: true
 }));
+
+// Enable preflight requests for all routes
+app.options('*', cors());
 
 app.use(express.json());
 
 // Default root route
 app.get('/', (req, res) => {
-  res.send('PromptPolish API is running!');
+  res.send('PromptPolish API is running! Using Gemini 2.0 Flash API.');
 });
 
 // Routes
@@ -56,6 +75,7 @@ const startServer = (port: number) => {
 
   server.listen(port, () => {
     console.log(`[express] serving on port ${port}`);
+    console.log(`Using Gemini 2.0 Flash API ${geminiApiKey ? 'with API key' : 'in mock mode'}`);
   });
 };
 
