@@ -2,17 +2,24 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { 
   User,
   AuthError,
-  onAuthStateChanged
+  onAuthStateChanged,
+  Auth
 } from 'firebase/auth';
 import { 
   auth, 
   signInWithGoogle as firebaseSignInWithGoogle,
+  handleGoogleRedirect,
   loginWithEmail as firebaseLoginWithEmail,
   registerWithEmail as firebaseRegisterWithEmail,
   signOutUser as firebaseSignOut,
-  handleFirebaseError
+  handleFirebaseError,
+  db
 } from './firebase';
-import { doc, getDoc, getFirestore } from 'firebase/firestore';
+import { doc, getDoc, Firestore } from 'firebase/firestore';
+
+// Type assertions for Firebase services
+const firebaseAuth = auth as Auth;
+const firebaseDB = db as Firestore;
 
 // Types
 type UserProfile = {
@@ -40,23 +47,26 @@ interface AuthContextType {
 // Create Auth Context
 const AuthContext = createContext<AuthContextType | null>(null);
 
-// Development flag - use this to bypass real Firebase auth during development
-const useMockAuth = 
-  import.meta.env.DEV && 
-  (!import.meta.env.VITE_FIREBASE_API_KEY || !import.meta.env.VITE_FIREBASE_AUTH_DOMAIN);
-
 // Auth Provider component
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const db = getFirestore();
   
   // Get user profile data from Firestore
   const getUserProfile = async (uid: string): Promise<UserProfile | null> => {
     try {
-      const userRef = doc(db, 'users', uid);
+      // Make sure we're using the Firestore instance
+      if (!db) {
+        console.error('Firestore is not initialized');
+        return null;
+      }
+      
+      // Create proper document reference
+      const userRef = doc(db as Firestore, 'users', uid);
+      
+      // Get document snapshot
       const userSnap = await getDoc(userRef);
       
       if (userSnap.exists()) {
@@ -71,32 +81,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
   
   useEffect(() => {
-    // If using mock auth for development
-    if (useMockAuth) {
-      const mockUser = {
-        uid: 'mock-user-123',
-        email: 'user@example.com',
-        displayName: 'Test User',
-        photoURL: 'https://via.placeholder.com/150',
-        emailVerified: true,
-      } as User;
-      
-      const mockProfile = {
-        uid: 'mock-user-123',
-        email: 'user@example.com',
-        username: 'testuser',
-        displayName: 'Test User',
-        photoURL: 'https://via.placeholder.com/150',
-        emailVerified: true,
-      };
-      
-      setUser(mockUser);
-      setUserProfile(mockProfile);
-      setIsLoading(false);
-      return () => {};
-    }
-  
-    // Real Firebase auth listener
+    const handleRedirectResult = async () => {
+      try {
+        // Check for any Google sign-in redirect results
+        const redirectUser = await handleGoogleRedirect();
+        if (redirectUser) {
+          setUser(redirectUser);
+          const profile = await getUserProfile(redirectUser.uid);
+          if (profile) {
+            setUserProfile({
+              ...profile,
+              emailVerified: redirectUser.emailVerified,
+            } as UserProfile);
+          }
+        }
+      } catch (error: any) {
+        console.error('Error handling redirect result:', error);
+        setError(handleFirebaseError(error));
+      }
+    };
+
+    // Handle the redirect result when the component mounts
+    handleRedirectResult();
+    
+    // Set up Firebase auth listener
     try {
       // Make sure we have auth before setting up listeners
       if (!auth) {
@@ -107,7 +115,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       const unsubscribe = onAuthStateChanged(
-        auth, 
+        auth as Auth, 
         async (authUser: User | null) => {
           setIsLoading(true);
           
@@ -168,54 +176,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setIsLoading(false);
       return () => {};
     }
-  }, [useMockAuth, db]);
+  }, []);
 
-  // Sign in with Google
+  // Sign in with Google - starts the redirect flow
   const signInWithGoogle = async () => {
-    if (useMockAuth) {
-      // Mock sign in
-      const mockUser = {
-        uid: 'mock-user-123',
-        email: 'user@example.com',
-        displayName: 'Test User',
-        photoURL: 'https://via.placeholder.com/150',
-        emailVerified: true,
-      } as User;
-      
-      setUser(mockUser);
-      return;
-    }
-    
     try {
       setIsLoading(true);
       setError(null);
-      const user = await firebaseSignInWithGoogle();
-      setUser(user);
+      // This will redirect to Google sign-in page
+      await firebaseSignInWithGoogle();
+      // No user is returned immediately as this is a redirect flow
     } catch (error: any) {
       console.error('Google sign in error:', error);
       setError(handleFirebaseError(error));
-      throw error;
-    } finally {
       setIsLoading(false);
+      throw error;
     }
+    // Note: Don't set isLoading to false here since the page will redirect
   };
 
   // Login with email/password
   const loginWithEmail = async (email: string, password: string) => {
-    if (useMockAuth) {
-      // Mock login
-      const mockUser = {
-        uid: 'mock-user-123',
-        email,
-        displayName: 'Test User',
-        photoURL: 'https://via.placeholder.com/150',
-        emailVerified: true,
-      } as User;
-      
-      setUser(mockUser);
-      return;
-    }
-    
     try {
       setIsLoading(true);
       setError(null);
@@ -232,20 +213,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   
   // Register with email/password
   const registerWithEmail = async (email: string, password: string, username: string) => {
-    if (useMockAuth) {
-      // Mock registration
-      const mockUser = {
-        uid: 'mock-user-123',
-        email,
-        displayName: username,
-        photoURL: null,
-        emailVerified: false,
-      } as User;
-      
-      setUser(mockUser);
-      return;
-    }
-    
     try {
       setIsLoading(true);
       setError(null);
@@ -262,13 +229,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Sign out
   const signOut = async () => {
-    if (useMockAuth) {
-      // Mock sign out
-      setUser(null);
-      setUserProfile(null);
-      return;
-    }
-    
     try {
       setIsLoading(true);
       await firebaseSignOut();

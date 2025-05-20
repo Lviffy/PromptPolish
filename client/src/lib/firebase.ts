@@ -11,55 +11,18 @@ import {
   User,
   UserCredential,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   AuthError
 } from 'firebase/auth';
 import { getFirestore, doc, setDoc, getDoc, Firestore } from 'firebase/firestore';
-import { getAnalytics, isSupported, Analytics } from 'firebase/analytics';
+import { getAnalytics } from 'firebase/analytics';
 
 // Import the firebase config from root firebase.ts
-import { app as firebaseApp, auth as firebaseAuth, analytics as firebaseAnalytics } from '../firebase';
+import { app, auth, analytics } from '../firebase';
 
-// Determine if we're in development mode without valid Firebase config
-const isDev = import.meta.env.DEV && 
-  (!import.meta.env.VITE_FIREBASE_API_KEY || !import.meta.env.VITE_FIREBASE_AUTH_DOMAIN);
-
-// Export the Firebase services
-export const auth = firebaseAuth;
-
-// Define db variable
-let db;
-
-// Create a mock Firestore or use the real one
-if (isDev) {
-  // Create a mock Firestore implementation
-  db = {
-    collection: () => ({
-      doc: () => ({
-        get: async () => ({
-          exists: () => false,
-          data: () => ({}),
-        }),
-        set: async () => {},
-        update: async () => {},
-      }),
-    }),
-    doc: (collection, id) => ({
-      get: async () => ({
-        exists: () => false,
-        data: () => ({}),
-      }),
-      set: async () => {},
-    }),
-  };
-} else {
-  // Use the real Firestore DB
-  db = getFirestore(firebaseApp);
-}
-
-// Export the db
-export { db };
-
-export const analytics = firebaseAnalytics;
+// Initialize Firestore
+const db = getFirestore(app);
 
 // Configure Google Auth Provider
 export const googleProvider = new GoogleAuthProvider();
@@ -67,24 +30,65 @@ googleProvider.setCustomParameters({
   prompt: 'select_account'
 });
 
+// Add these scopes for better profile data
+googleProvider.addScope('profile');
+googleProvider.addScope('email');
+
 // Auth helper functions
 export const signInWithGoogle = async (): Promise<User> => {
-  if (isDev) {
-    console.log('Using mock signInWithGoogle implementation');
-    // Return a mock user
-    return {
-      uid: 'mock-user-123',
-      email: 'mockuser@example.com',
-      displayName: 'Mock User',
-      photoURL: 'https://via.placeholder.com/150',
-      emailVerified: true,
-    } as User;
-  }
-  
   try {
+    // Use popup auth with error handling
     const result = await signInWithPopup(auth, googleProvider);
     const user = result.user;
     
+    // Create/update user profile
+    await createUserProfileIfNeeded(user);
+    
+    return user;
+  } catch (error: any) {
+    // Check for popup blocked error
+    if (error.code === 'auth/popup-blocked' || 
+        error.code === 'auth/cancelled-popup-request' ||
+        error.code === 'auth/popup-closed-by-user') {
+      console.log('Popup was blocked, trying redirect...');
+      try {
+        // Fall back to redirect
+        await signInWithRedirect(auth, googleProvider);
+        // This won't return immediately as it redirects
+        return {} as User;
+      } catch (redirectError) {
+        console.error('Error during redirect sign in:', redirectError);
+        throw redirectError;
+      }
+    }
+    
+    console.error('Error signing in with Google:', error);
+    throw error;
+  }
+};
+
+// Handle redirect result from Google sign-in
+export const handleGoogleRedirect = async (): Promise<User | null> => {
+  try {
+    const result = await getRedirectResult(auth);
+    if (result) {
+      const user = result.user;
+      
+      // Create/update user profile
+      await createUserProfileIfNeeded(user);
+      
+      return user;
+    }
+    return null;
+  } catch (error) {
+    console.error('Error handling Google redirect:', error);
+    throw error;
+  }
+};
+
+// Helper function to create user profile
+async function createUserProfileIfNeeded(user: User) {
+  try {
     // Check if user profile exists, if not create one with username from email
     const userRef = doc(db, 'users', user.uid);
     const userSnap = await getDoc(userRef);
@@ -101,31 +105,16 @@ export const signInWithGoogle = async (): Promise<User> => {
         createdAt: new Date().toISOString()
       });
     }
-    
-    return user;
   } catch (error) {
-    console.error('Error signing in with Google:', error);
-    throw error;
+    console.error('Error creating user profile:', error);
   }
-};
+}
 
 export const registerWithEmail = async (
   email: string, 
   password: string, 
   username: string
 ): Promise<User> => {
-  if (isDev) {
-    console.log('Using mock registerWithEmail implementation');
-    // Return a mock user
-    return {
-      uid: 'mock-user-123',
-      email,
-      displayName: username,
-      photoURL: null,
-      emailVerified: false,
-    } as User;
-  }
-  
   try {
     // Create user with email and password
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
@@ -155,18 +144,6 @@ export const loginWithEmail = async (
   email: string, 
   password: string
 ): Promise<User> => {
-  if (isDev) {
-    console.log('Using mock loginWithEmail implementation');
-    // Return a mock user
-    return {
-      uid: 'mock-user-123',
-      email,
-      displayName: 'Mock User',
-      photoURL: 'https://via.placeholder.com/150',
-      emailVerified: true,
-    } as User;
-  }
-  
   try {
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
     return userCredential.user;
@@ -177,11 +154,6 @@ export const loginWithEmail = async (
 };
 
 export const signOutUser = async (): Promise<void> => {
-  if (isDev) {
-    console.log('Using mock signOut implementation');
-    return;
-  }
-  
   try {
     await firebaseSignOut(auth);
   } catch (error) {
@@ -206,3 +178,5 @@ export function handleFirebaseError(error: any): string {
 
   return errorCode && errorMessage[errorCode] ? errorMessage[errorCode] : error?.message || 'An unexpected error occurred';
 }
+
+export { auth, db, analytics };
